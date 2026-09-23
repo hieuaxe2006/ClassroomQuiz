@@ -107,3 +107,31 @@ InitTestScene*.unity*
 
 # Auto-generated cache in Assets folder
 /[Aa]ssets/[Ss]ceneDependencyCache*
+
+# ============================================
+# Server (.NET) build output
+# ============================================
+Server/bin/
+Server/obj/
+
+# ============================================
+# IDE / Editor
+# ============================================
+# JetBrains Rider
+.idea/
+.rider/
+*.DotSettings
+
+# Visual Studio Code
+.vscode/
+
+# ============================================
+# OS junk
+# ============================================
+Thumbs.db
+Thumbs.db:encryptable
+ehthumbs.db
+Desktop.ini
+.DS_Store
+.DS_Store?
+._*
