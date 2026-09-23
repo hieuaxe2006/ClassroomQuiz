@@ -21,6 +21,15 @@ public class GameManager : MonoBehaviour
 {
     public static GameManager Instance { get; private set; }
 
+    // =========================================================
+    // CÁC SỰ KIỆN (EVENTS) ĐỂ UI LẮNG NGHE TỪ SERVER
+    // =========================================================
+    public Action OnConnectSuccess;                           // Gọi khi kết nối OK
+    public Action<RoomData> OnRoomCreated;                    // Gọi khi tạo phòng xong
+    public Action<System.Collections.Generic.List<RoomData>> OnRoomListReceived; // Gọi khi nhận DS phòng
+    public Action<RoomData> OnJoinRoomSuccess;                // Gọi khi join phòng OK
+    public Action OnGameStarted;                              // Gọi khi game bắt đầu
+
     [Header("Dữ liệu Người chơi & Phòng")]
     [SerializeField] private PlayerData localPlayer;
     [SerializeField] private RoomData currentRoom;
