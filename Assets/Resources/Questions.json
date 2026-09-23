@@ -1,0 +1,184 @@
+{
+  "questions": [
+    {
+      "questionId": 1,
+      "questionText": "Thủ đô của nước Cộng hòa Xã hội Chủ nghĩa Việt Nam là thành phố nào?",
+      "answers": [
+        "Hà Nội",
+        "Hồ Chí Minh",
+        "Đà Nẵng",
+        "Cần Thơ"
+      ],
+      "correctAnswerIndex": 0,
+      "category": "Địa lý"
+    },
+    {
+      "questionId": 2,
+      "questionText": "Đỉnh núi nào cao nhất Việt Nam và được mệnh danh là 'Nóc nhà Đông Dương'?",
+      "answers": [
+        "Tây Côn Lĩnh",
+        "Fansipan",
+        "Bạch Mộc Lương Tử",
+        "Pu Si Lung"
+      ],
+      "correctAnswerIndex": 1,
+      "category": "Địa lý"
+    },
+    {
+      "questionId": 3,
+      "questionText": "Dòng sông nào dài nhất thế giới hiện nay theo số liệu địa lý phổ biến?",
+      "answers": [
+        "Sông Amazon",
+        "Sông Dương Tử",
+        "Sông Nile",
+        "Sông Mississippi"
+      ],
+      "correctAnswerIndex": 2,
+      "category": "Địa lý"
+    },
+    {
+      "questionId": 4,
+      "questionText": "Sa mạc nào là sa mạc cát nhiệt đới có diện tích lớn nhất trên thế giới?",
+      "answers": [
+        "Sa mạc Gobi",
+        "Sa mạc Kalahari",
+        "Sa mạc Atacama",
+        "Sa mạc Sahara"
+      ],
+      "correctAnswerIndex": 3,
+      "category": "Địa lý"
+    },
+    {
+      "questionId": 5,
+      "questionText": "Hồ nước ngọt tự nhiên lớn nhất ở Việt Nam thuộc tỉnh nào?",
+      "answers": [
+        "Bắc Kạn (Hồ Ba Bể)",
+        "Lâm Đồng (Hồ Tuyền Lâm)",
+        "Gia Lai (Biển Hồ)",
+        "Hà Nội (Hồ Tây)"
+      ],
+      "correctAnswerIndex": 0,
+      "category": "Địa lý"
+    },
+    {
+      "questionId": 6,
+      "questionText": "Chiến thắng Điện Biên Phủ 'lừng lẫy năm châu, chấn động địa cầu' diễn ra vào năm nào?",
+      "answers": [
+        "1945",
+        "1954",
+        "1975",
+        "1968"
+      ],
+      "correctAnswerIndex": 1,
+      "category": "Lịch sử"
+    },
+    {
+      "questionId": 7,
+      "questionText": "Vị vua nào đã ban 'Chiếu dời đô' chuyển kinh đô từ Hoa Lư về Thăng Long năm 1010?",
+      "answers": [
+        "Lý Thái Tổ",
+        "Lý Nhân Tông",
+        "Lê Thái Tổ",
+        "Trần Thái Tông"
+      ],
+      "correctAnswerIndex": 0,
+      "category": "Lịch sử"
+    },
+    {
+      "questionId": 8,
+      "questionText": "Trận chiến trên sông Bạch Đằng năm 938 đánh tan quân Nam Hán gắn liền với vị anh hùng dân tộc nào?",
+      "answers": [
+        "Đinh Bộ Lĩnh",
+        "Trần Hưng Đạo",
+        "Ngô Quyền",
+        "Lê Hoàn"
+      ],
+      "correctAnswerIndex": 2,
+      "category": "Lịch sử"
+    },
+    {
+      "questionId": 9,
+      "questionText": "Hành tinh nào nằm gần Mặt Trời nhất trong Hệ Mặt Trời?",
+      "answers": [
+        "Sao Kim",
+        "Sao Hỏa",
+        "Sao Mộc",
+        "Sao Thủy"
+      ],
+      "correctAnswerIndex": 3,
+      "category": "Khoa học"
+    },
+    {
+      "questionId": 10,
+      "questionText": "Khí nào chiếm tỉ lệ phần trăm thể tích lớn nhất trong bầu khí quyển Trái Đất?",
+      "answers": [
+        "Khí Oxy",
+        "Khí Nitơ",
+        "Khí Carbon dioxide",
+        "Khí Argon"
+      ],
+      "correctAnswerIndex": 1,
+      "category": "Khoa học"
+    },
+    {
+      "questionId": 11,
+      "questionText": "Trong bảng tuần hoàn hóa học, nguyên tố 'Vàng' có ký hiệu hóa học là gì?",
+      "answers": [
+        "Ag",
+        "Al",
+        "Fe",
+        "Au"
+      ],
+      "correctAnswerIndex": 3,
+      "category": "Khoa học"
+    },
+    {
+      "questionId": 12,
+      "questionText": "Số nguyên tố chẵn duy nhất và cũng là số nguyên tố nhỏ nhất là số nào?",
+      "answers": [
+        "0",
+        "1",
+        "2",
+        "4"
+      ],
+      "correctAnswerIndex": 2,
+      "category": "Toán học"
+    },
+    {
+      "questionId": 13,
+      "questionText": "Tổng số đo ba góc trong một hình tam giác phẳng bằng bao nhiêu độ?",
+      "answers": [
+        "90 độ",
+        "180 độ",
+        "270 độ",
+        "360 độ"
+      ],
+      "correctAnswerIndex": 1,
+      "category": "Toán học"
+    },
+    {
+      "questionId": 14,
+      "questionText": "Tác phẩm kiệt tác văn học 'Truyện Kiều' (Đoạn trường tân thanh) là sáng tác của tác giả nào?",
+      "answers": [
+        "Nguyễn Trãi",
+        "Nguyễn Du",
+        "Hồ Xuân Hương",
+        "Nguyễn Đình Chiểu"
+      ],
+      "correctAnswerIndex": 1,
+      "category": "Văn học"
+    },
+    {
+      "questionId": 15,
+      "questionText": "Tác phẩm văn học thiếu nhi nổi tiếng 'Dế Mèn phiêu lưu ký' là sáng tác của nhà văn nào?",
+      "answers": [
+        "Tô Hoài",
+        "Nguyễn Nhật Ánh",
+        "Kim Lân",
+        "Vũ Trọng Phụng"
+      ],
+      "correctAnswerIndex": 0,
+      "category": "Văn học"
+    }
+  ]
+}
