@@ -27,12 +27,4 @@ public class PlayerController : NetworkBehaviour
         movement = new Vector2(moveHorizontal, moveVertical).normalized;
         rb.linearVelocity = movement * moveSpeed;
     }
-    public override void OnNetworkSpawn()
-    {
-        Camera cam = GetComponentInChildren<Camera>();
-        if (cam != null)
-        {
-            cam.enabled = IsOwner;
-        }
-    }
 }
