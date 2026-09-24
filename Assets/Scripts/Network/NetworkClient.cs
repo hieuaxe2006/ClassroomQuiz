@@ -50,6 +50,9 @@ public class NetworkClient : MonoBehaviour
     {
         if (IsConnected) return;
 
+        // Dispose previous failed connection resources before retrying
+        CleanupConnection();
+
         serverIP = ip;
         serverPort = port;
         ConnectedIP = $"{ip}:{port}";
@@ -70,6 +73,28 @@ public class NetworkClient : MonoBehaviour
         catch (Exception e)
         {
             Debug.LogError($"Connection error: {e.Message}");
+            // Clean up the failed connection so the next attempt starts fresh
+            CleanupConnection();
+        }
+    }
+
+    /// <summary>
+    /// Dispose and nullify WebSocket and CancellationTokenSource if they exist.
+    /// Called before a new connection attempt and after a failed one.
+    /// </summary>
+    private void CleanupConnection()
+    {
+        if (cancellationTokenSource != null)
+        {
+            cancellationTokenSource.Cancel();
+            cancellationTokenSource.Dispose();
+            cancellationTokenSource = null;
+        }
+
+        if (webSocket != null)
+        {
+            webSocket.Dispose();
+            webSocket = null;
         }
     }
 
@@ -155,16 +180,7 @@ public class NetworkClient : MonoBehaviour
                 }
             }
             
-            if (cancellationTokenSource != null)
-            {
-                cancellationTokenSource.Cancel();
-                cancellationTokenSource.Dispose();
-                cancellationTokenSource = null;
-            }
-            
-            webSocket.Dispose();
-            webSocket = null;
-            
+            CleanupConnection();
             ConnectedIP = null;
             Debug.Log("Disconnected.");
         }
