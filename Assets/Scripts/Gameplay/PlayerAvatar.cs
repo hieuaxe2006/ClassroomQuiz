@@ -34,9 +34,23 @@ public class PlayerAvatar : MonoBehaviour
     /// <param name="data">Dữ liệu người chơi nhận được từ phòng/mạng</param>
     public void Setup(PlayerData data)
     {
-        // TODO: Lưu playerId từ data.playerId
-        // TODO: Gán tên người chơi vào txtName.text
-        // TODO: Kiểm tra data.characterId hợp lệ (0-2) và gán sprite tương ứng từ characterSprites vào spriteRenderer.sprite
+        playerId = data.playerId;
+
+        // Gán tên người chơi
+        if (txtName != null)
+        {
+            txtName.text = data.playerName;
+        }
+
+        // Gán sprite nhân vật theo characterId (0, 1, 2)
+        if (spriteRenderer != null && characterSprites != null
+            && data.characterId >= 0 && data.characterId < characterSprites.Length)
+        {
+            spriteRenderer.sprite = characterSprites[data.characterId];
+        }
+
+        // Tắt highlight mặc định
+        SetHighlight(false);
     }
 
     /// <summary>
@@ -44,7 +58,10 @@ public class PlayerAvatar : MonoBehaviour
     /// </summary>
     public void PlayRaiseHandAnimation()
     {
-        // TODO: Kích hoạt Trigger hoặc gán Bool trên Animator để thực hiện animation giơ tay (RaiseHand)
+        if (animator != null)
+        {
+            animator.SetTrigger("RaiseHand");
+        }
     }
 
     /// <summary>
@@ -52,7 +69,10 @@ public class PlayerAvatar : MonoBehaviour
     /// </summary>
     public void PlayIdleAnimation()
     {
-        // TODO: Chuyển Animator về trạng thái Idle
+        if (animator != null)
+        {
+            animator.SetTrigger("Idle");
+        }
     }
 
     /// <summary>
@@ -61,6 +81,9 @@ public class PlayerAvatar : MonoBehaviour
     /// <param name="on">True nếu được quyền trả lời, False nếu tắt</param>
     public void SetHighlight(bool on)
     {
-        // TODO: Kích hoạt hoặc ẩn highlightIndicator (SetActive(on))
+        if (highlightIndicator != null)
+        {
+            highlightIndicator.SetActive(on);
+        }
     }
 }

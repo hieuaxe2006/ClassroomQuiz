@@ -72,8 +72,8 @@ public class GameManager : MonoBehaviour
     /// <param name="newState">Trạng thái mới cần chuyển sang</param>
     public void SetState(GameState newState)
     {
-        // TODO: Cập nhật biến currentState = newState
-        // TODO: Kích hoạt sự kiện thay đổi trạng thái hoặc chuyển Scene/Panel tương ứng
+        Debug.Log($"[GameManager] State: {currentState} → {newState}");
+        currentState = newState;
     }
 
     /// <summary>
@@ -81,8 +81,14 @@ public class GameManager : MonoBehaviour
     /// </summary>
     public void ResetGame()
     {
-        // TODO: Reset currentRound về 0
-        // TODO: Reset điểm số của localPlayer
-        // TODO: Xóa hoặc cập nhật lại thông tin currentRoom khi rời phòng hoặc chơi lại
+        currentRound = 0;
+
+        if (localPlayer != null)
+        {
+            localPlayer.currentScore = 0;
+        }
+
+        currentRoom = null;
+        SetState(GameState.Menu);
     }
 }

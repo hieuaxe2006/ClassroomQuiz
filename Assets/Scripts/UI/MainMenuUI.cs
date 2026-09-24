@@ -395,14 +395,26 @@ public class MainMenuUI : MonoBehaviour
             // Chuyển danh sách player từ server sang PlayerData
             if (roomMsg.Players != null)
             {
+                string localName = GameManager.Instance.LocalPlayer?.playerName;
+
                 for (int i = 0; i < roomMsg.Players.Length; i++)
                 {
                     var p = roomMsg.Players[i];
+                    string pid = System.Guid.NewGuid().ToString()[..8];
+
+                    // Nếu trùng tên với local player → dùng lại playerId đã tạo
+                    if (localName != null && p.Name == localName
+                        && GameManager.Instance.LocalPlayer != null)
+                    {
+                        pid = GameManager.Instance.LocalPlayer.playerId;
+                    }
+
                     roomData.players.Add(new PlayerData
                     {
                         playerName = p.Name,
                         isHost = p.IsHost,
-                        playerId = i.ToString()
+                        playerId = pid,
+                        characterId = i % 3  // Gán character khác nhau (0, 1, 2)
                     });
                 }
             }

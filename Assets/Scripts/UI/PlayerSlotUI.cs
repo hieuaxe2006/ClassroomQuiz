@@ -5,6 +5,7 @@ using TMPro;
 /// <summary>
 /// UI hiển thị thông tin 1 player trong danh sách phòng chờ.
 /// Gắn vào Prefab PlayerSlot (item trong ScrollView).
+/// Hỗ trợ hiển thị character sprite hoặc fallback avatar letter.
 /// </summary>
 public class PlayerSlotUI : MonoBehaviour
 {
@@ -12,7 +13,7 @@ public class PlayerSlotUI : MonoBehaviour
     [Tooltip("Hình nền avatar (dùng Image.color để đổi màu)")]
     [SerializeField] private Image imgAvatar;
 
-    [Tooltip("Text hiển thị chữ cái đầu tên (avatar letter)")]
+    [Tooltip("Text hiển thị chữ cái đầu tên (avatar letter) — fallback khi không có sprite")]
     [SerializeField] private TMP_Text txtAvatarLetter;
 
     [Tooltip("Text hiển thị tên người chơi")]
@@ -32,6 +33,13 @@ public class PlayerSlotUI : MonoBehaviour
 
     [Tooltip("Viền nổi bật khi là chính mình (optional)")]
     [SerializeField] private Image imgHighlightBorder;
+
+    [Header("═══ CHARACTER SPRITE ═══")]
+    [Tooltip("Image hiển thị character sprite (ẩn nếu không có sprite)")]
+    [SerializeField] private Image imgCharacter;
+
+    [Tooltip("Danh sách sprite 3 nhân vật (kéo từ Assets/Art/Sprites/Characters)")]
+    [SerializeField] private Sprite[] characterSprites;
 
     // Dữ liệu player được gán
     private PlayerData playerData;
@@ -71,16 +79,8 @@ public class PlayerSlotUI : MonoBehaviour
             txtPlayerName.text = displayName;
         }
 
-        // === Avatar letter + màu ===
-        if (txtAvatarLetter != null && !string.IsNullOrEmpty(data.playerName))
-        {
-            txtAvatarLetter.text = data.playerName[0].ToString().ToUpper();
-        }
-
-        if (imgAvatar != null)
-        {
-            imgAvatar.color = AvatarColors[slotIndex % AvatarColors.Length];
-        }
+        // === Character Sprite hoặc Avatar Letter ===
+        SetupCharacterDisplay(data, slotIndex);
 
         // === Vai trò ===
         if (txtRole != null)
@@ -142,6 +142,7 @@ public class PlayerSlotUI : MonoBehaviour
 
         if (txtAvatarLetter != null) txtAvatarLetter.text = "?";
         if (imgAvatar != null) imgAvatar.color = new Color(0.2f, 0.2f, 0.2f, 0.5f);
+        if (imgCharacter != null) imgCharacter.gameObject.SetActive(false);
         if (txtRole != null) txtRole.text = "";
         if (txtStatus != null)
         {
@@ -156,6 +157,55 @@ public class PlayerSlotUI : MonoBehaviour
     // ═══════════════════════════════════════════
     //  PRIVATE
     // ═══════════════════════════════════════════
+
+    /// <summary>
+    /// Hiển thị character sprite nếu có, fallback sang avatar letter + màu nếu không.
+    /// </summary>
+    private void SetupCharacterDisplay(PlayerData data, int slotIndex)
+    {
+        bool hasCharacterSprite = imgCharacter != null
+            && characterSprites != null
+            && characterSprites.Length > 0
+            && data.characterId >= 0
+            && data.characterId < characterSprites.Length
+            && characterSprites[data.characterId] != null;
+
+        if (hasCharacterSprite)
+        {
+            // === Hiển thị Character Sprite ===
+            imgCharacter.sprite = characterSprites[data.characterId];
+            imgCharacter.gameObject.SetActive(true);
+            imgCharacter.preserveAspect = true;
+
+            // Ẩn avatar letter (không cần nữa)
+            if (txtAvatarLetter != null) txtAvatarLetter.gameObject.SetActive(false);
+
+            // Đổi màu nền avatar theo slot
+            if (imgAvatar != null)
+            {
+                imgAvatar.color = AvatarColors[slotIndex % AvatarColors.Length];
+            }
+        }
+        else
+        {
+            // === Fallback: Avatar Letter + Màu ===
+            if (imgCharacter != null) imgCharacter.gameObject.SetActive(false);
+
+            if (txtAvatarLetter != null)
+            {
+                txtAvatarLetter.gameObject.SetActive(true);
+                if (!string.IsNullOrEmpty(data.playerName))
+                {
+                    txtAvatarLetter.text = data.playerName[0].ToString().ToUpper();
+                }
+            }
+
+            if (imgAvatar != null)
+            {
+                imgAvatar.color = AvatarColors[slotIndex % AvatarColors.Length];
+            }
+        }
+    }
 
     /// <summary>
     /// Xử lý khi Host nhấn nút Kick player.
