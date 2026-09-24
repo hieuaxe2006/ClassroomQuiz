@@ -1,38 +1,32 @@
 using System;
-using System.Collections.Generic;
-using System.Net.Sockets;
+using System.Collections.Concurrent;
+using System.Net.WebSockets;
+using System.Text;
 using System.Threading;
+using System.Threading.Tasks;
 using UnityEngine;
 
-/// <summary>
-/// Quản lý kết nối mạng TCP socket với server.
-/// Xử lý gửi/nhận packet đa luồng và điều phối (dispatch) về Main Thread của Unity.
-/// </summary>
 public class NetworkClient : MonoBehaviour
 {
     public static NetworkClient Instance { get; private set; }
 
-    [Header("Cấu hình kết nối Server")]
     [SerializeField] private string serverIP = "127.0.0.1";
-    [SerializeField] private int serverPort = 7777;
+    [SerializeField] private int serverPort = 8181;
 
-    // Các trường phục vụ kết nối mạng
-    private TcpClient tcpClient;
-    private NetworkStream networkStream;
-    private Thread receiveThread;
-    private bool isConnected;
-
-    // Hàng đợi dispatch action về Unity Main Thread
-    private readonly Queue<Action> mainThreadActions = new Queue<Action>();
-    private readonly object queueLock = new object();
-
-    public bool IsConnected => isConnected;
     public string ServerIP => serverIP;
     public int ServerPort => serverPort;
 
+    public string ConnectedIP { get; private set; }
+    public bool IsConnected => webSocket != null && webSocket.State == WebSocketState.Open;
+
+    public event Action<string> OnMessageReceived;
+
+    private ClientWebSocket webSocket;
+    private ConcurrentQueue<string> messageQueue = new ConcurrentQueue<string>();
+    private CancellationTokenSource cancellationTokenSource;
+
     private void Awake()
     {
-        // Khởi tạo Singleton pattern và giữ object tồn tại qua các Scene
         if (Instance == null)
         {
             Instance = this;
@@ -46,65 +40,138 @@ public class NetworkClient : MonoBehaviour
 
     private void Update()
     {
-        // TODO: Lấy các Action từ mainThreadActions (cần lock queueLock) và thực thi trên Unity Main Thread
+        while (messageQueue.TryDequeue(out string message))
+        {
+            OnMessageReceived?.Invoke(message);
+        }
     }
 
-    /// <summary>
-    /// Bắt đầu kết nối đến TCP Server.
-    /// </summary>
-    /// <param name="ip">Địa chỉ IP của server</param>
-    /// <param name="port">Cổng (port) của server</param>
-    public void Connect(string ip, int port)
+    public async void Connect(string ip, int port)
     {
-        // TODO: Thiết lập kết nối TcpClient với ip và port
-        // TODO: Lấy NetworkStream và khởi tạo receiveThread để chạy ReceiveLoop()
-        // TODO: Cập nhật trạng thái isConnected = true
+        if (IsConnected) return;
+
+        serverIP = ip;
+        serverPort = port;
+        ConnectedIP = $"{ip}:{port}";
+
+        webSocket = new ClientWebSocket();
+        cancellationTokenSource = new CancellationTokenSource();
+
+        Uri serverUri = new Uri($"ws://{ip}:{port}");
+        
+        try
+        {
+            await webSocket.ConnectAsync(serverUri, cancellationTokenSource.Token);
+            Debug.Log($"Connected to {serverUri}");
+            
+            // Start receiving messages in the background
+            _ = ReceiveMessagesAsync();
+        }
+        catch (Exception e)
+        {
+            Debug.LogError($"Connection error: {e.Message}");
+        }
     }
 
-    /// <summary>
-    /// Ngắt kết nối khỏi server và giải phóng tài nguyên.
-    /// </summary>
-    public void Disconnect()
+    public new async void SendMessage(string json)
     {
-        // TODO: Đóng kết nối networkStream và tcpClient
-        // TODO: Dừng receiveThread một cách an toàn
-        // TODO: Đặt isConnected = false
+        if (!IsConnected)
+        {
+            Debug.LogError("Cannot send message: Not connected.");
+            return;
+        }
+
+        try
+        {
+            byte[] bytes = Encoding.UTF8.GetBytes(json);
+            ArraySegment<byte> buffer = new ArraySegment<byte>(bytes);
+            await webSocket.SendAsync(buffer, WebSocketMessageType.Text, true, cancellationTokenSource.Token);
+        }
+        catch (Exception e)
+        {
+            Debug.LogError($"Error sending message: {e.Message}");
+        }
     }
 
-    /// <summary>
-    /// Gửi packet dữ liệu lên server.
-    /// </summary>
-    /// <param name="type">Loại packet (PacketType)</param>
-    /// <param name="jsonPayload">Chuỗi nội dung JSON của packet</param>
-    public void SendPacket(PacketType type, string jsonPayload)
+    private async Task ReceiveMessagesAsync()
     {
-        // TODO: Sử dụng PacketSerializer.Serialize(type, jsonPayload) để đóng gói thành mảng byte
-        // TODO: Ghi dữ liệu mảng byte vào networkStream
+        byte[] buffer = new byte[8192];
+
+        try
+        {
+            while (IsConnected && !cancellationTokenSource.Token.IsCancellationRequested)
+            {
+                ArraySegment<byte> segment = new ArraySegment<byte>(buffer);
+                WebSocketReceiveResult result = await webSocket.ReceiveAsync(segment, cancellationTokenSource.Token);
+
+                if (result.MessageType == WebSocketMessageType.Close)
+                {
+                    await webSocket.CloseAsync(WebSocketCloseStatus.NormalClosure, string.Empty, CancellationToken.None);
+                    Debug.Log("WebSocket connection closed by server.");
+                }
+                else if (result.MessageType == WebSocketMessageType.Text)
+                {
+                    string message = Encoding.UTF8.GetString(buffer, 0, result.Count);
+                    
+                    if (!result.EndOfMessage)
+                    {
+                        // Handle fragmented messages
+                        StringBuilder sb = new StringBuilder(message);
+                        while (!result.EndOfMessage)
+                        {
+                            result = await webSocket.ReceiveAsync(segment, cancellationTokenSource.Token);
+                            sb.Append(Encoding.UTF8.GetString(buffer, 0, result.Count));
+                        }
+                        message = sb.ToString();
+                    }
+
+                    messageQueue.Enqueue(message);
+                }
+            }
+        }
+        catch (OperationCanceledException)
+        {
+            // Expected when cancellation is requested
+        }
+        catch (Exception e)
+        {
+            Debug.LogError($"Error receiving message: {e.Message}");
+        }
     }
 
-    /// <summary>
-    /// Vòng lặp liên tục đọc dữ liệu nhận được từ server, chạy trên Thread riêng biệt.
-    /// </summary>
-    private void ReceiveLoop()
+    public async void Disconnect()
     {
-        // TODO: Đọc luồng byte từ networkStream theo định dạng packet [4 bytes độ dài][2 bytes PacketType][payload]
-        // TODO: Giải mã dữ liệu nhận được bằng PacketSerializer.Deserialize
-        // TODO: Đưa callback OnPacketReceived vào mainThreadActions (lock queueLock) để Main Thread thực thi
+        if (webSocket != null)
+        {
+            if (webSocket.State == WebSocketState.Open)
+            {
+                try
+                {
+                    await webSocket.CloseAsync(WebSocketCloseStatus.NormalClosure, "Client disconnected", CancellationToken.None);
+                }
+                catch (Exception e)
+                {
+                    Debug.LogError($"Error closing connection: {e.Message}");
+                }
+            }
+            
+            if (cancellationTokenSource != null)
+            {
+                cancellationTokenSource.Cancel();
+                cancellationTokenSource.Dispose();
+                cancellationTokenSource = null;
+            }
+            
+            webSocket.Dispose();
+            webSocket = null;
+            
+            ConnectedIP = null;
+            Debug.Log("Disconnected.");
+        }
     }
 
-    /// <summary>
-    /// Xử lý packet nhận được trên Main Thread.
-    /// </summary>
-    /// <param name="type">Loại packet</param>
-    /// <param name="jsonPayload">Nội dung JSON của packet</param>
-    public void OnPacketReceived(PacketType type, string jsonPayload)
+    private void OnDestroy()
     {
-        // TODO: Chuyển tiếp packet nhận được sang PacketHandler.Instance.HandlePacket(type, jsonPayload)
-    }
-
-    private void OnApplicationQuit()
-    {
-        // Tự động ngắt kết nối khi tắt ứng dụng
         Disconnect();
     }
 }
