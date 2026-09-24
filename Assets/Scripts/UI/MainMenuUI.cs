@@ -191,6 +191,19 @@ public class MainMenuUI : MonoBehaviour
         ShowStatus("Đang kết nối...", Color.yellow);
         SetButtonsInteractable(false);
 
+        // Lưu thông tin player vào GameManager trước khi kết nối
+        if (GameManager.Instance != null)
+        {
+            GameManager.Instance.LocalPlayer = new PlayerData
+            {
+                playerName = playerName,
+                playerId = System.Guid.NewGuid().ToString()[..8],
+                isHost = true,
+                currentScore = 0,
+                totalWins = 0
+            };
+        }
+
         var req = new CreateRoomRequest { Type = "CREATE_ROOM", PlayerName = playerName };
         ConnectAndSend(JsonUtility.ToJson(req));
     }
@@ -367,26 +380,39 @@ public class MainMenuUI : MonoBehaviour
     private void HandleRoomState(RoomStateMessage roomMsg)
     {
         currentRoomId = roomMsg.RoomId;
-        int maxPlayers = roomMsg.MaxPlayers;
-        int playerCount = roomMsg.Players != null ? roomMsg.Players.Length : 0;
 
-        // Chuyển sang Panel Phòng Chờ
-        ShowPanel(panelRoom);
+        // Lưu room data vào GameManager
+        if (GameManager.Instance != null)
+        {
+            var roomData = new RoomData
+            {
+                roomId = roomMsg.RoomId,
+                maxPlayers = roomMsg.MaxPlayers,
+                status = "WAITING",
+                players = new System.Collections.Generic.List<PlayerData>()
+            };
 
-        // Hiện IP Server
-        if (txtServerIP) txtServerIP.text = $"Server: {NetworkClient.Instance.ConnectedIP}";
+            // Chuyển danh sách player từ server sang PlayerData
+            if (roomMsg.Players != null)
+            {
+                for (int i = 0; i < roomMsg.Players.Length; i++)
+                {
+                    var p = roomMsg.Players[i];
+                    roomData.players.Add(new PlayerData
+                    {
+                        playerName = p.Name,
+                        isHost = p.IsHost,
+                        playerId = i.ToString()
+                    });
+                }
+            }
 
-        // Hiện mã phòng
-        if (txtRoomCode) txtRoomCode.text = $"Mã phòng: {currentRoomId}";
+            GameManager.Instance.CurrentRoom = roomData;
+            GameManager.Instance.SetState(GameState.InRoom);
+        }
 
-        // Hiện số người
-        if (txtPlayerCount) txtPlayerCount.text = $"{playerCount} / {maxPlayers}";
-
-        // Hiện/ẩn nút Start (chỉ Host mới thấy)
-        if (btnStart) btnStart.gameObject.SetActive(isHost);
-
-        // Vẽ danh sách người chơi
-        DrawPlayerList(roomMsg.Players);
+        // Chuyển sang scene LobbyHost
+        SceneManager.LoadScene("LobbyHost");
     }
 
     /// <summary>
