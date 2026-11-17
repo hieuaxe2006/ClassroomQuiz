@@ -1,6 +1,6 @@
 # ClassroomQuiz 🎓
 
-Game quiz trong lớp học — multiplayer qua TCP. Giáo viên tạo phòng, học sinh tham gia trả lời câu hỏi theo kiểu "giơ tay nhanh".
+Game quiz giáo dục trong lớp học — multiplayer qua TCP. Giáo viên theo dõi bảng xếp hạng trực tiếp; học sinh trả lời câu hỏi theo chuỗi học tập của từng bài.
 
 ## 📋 Yêu cầu
 
@@ -25,11 +25,18 @@ git clone https://github.com/hieuaxe2006/ClassroomQuiz.git
 - Đảm bảo dùng đúng phiên bản Unity `6000.3.5f1`
 - Unity sẽ tự tạo `Library/`, `Temp/`, v.v.
 
-### 3. Chạy Server
+### 3. Thiết lập tài khoản và database XAMPP
+
+- Bật **Apache** và **MySQL** trong XAMPP. XAMPP2 trên máy này dùng `D:\webserver` làm `DocumentRoot`.
+- Chạy `install_xampp_api.bat` từ thư mục project để cài API vào `D:\webserver\ClassroomQuizApi`.
+- Mở `http://127.0.0.1/ClassroomQuizApi/api.php`. API tự tạo database `classromquiz` và các bảng khi được gọi lần đầu.
+- Tài liệu cấu hình server, API và kết nối LAN nằm trong [Server/README.md](Server/README.md).
+
+### 4. Chạy Server
 
 ```bash
-cd Server
-dotnet run
+build_server.bat
+run_server.bat
 ```
 
 Server sẽ lắng nghe kết nối TCP từ game client.

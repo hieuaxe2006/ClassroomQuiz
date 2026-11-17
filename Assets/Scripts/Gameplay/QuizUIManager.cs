@@ -1,7 +1,8 @@
-using UnityEngine;
-using UnityEngine.UI;
 using TMPro;
 using Unity.Netcode;
+using UnityEngine;
+using UnityEngine.UI;
+
 public class QuizUIManager : MonoBehaviour
 {
     [Header("Panels")]
@@ -15,16 +16,20 @@ public class QuizUIManager : MonoBehaviour
     public Button btnAnswerB;
     public Button btnAnswerC;
     public Button btnAnswerD;
-    public Button btnHand;
     public TMP_Text txtStatus;
     [Header("Ranking UI")]
     public TMP_Text txtRankingScores;
-    private TMP_Text txtA, txtB, txtC, txtD;
-    private bool iLostThisRound = false;
-    private int lastQuestionNumber = -1;
+
+    private TMP_Text txtA;
+    private TMP_Text txtB;
+    private TMP_Text txtC;
+    private TMP_Text txtD;
+    private bool _answeredThisQuestion;
+    private bool _registered;
+    private int _lastQuestionNumber = -1;
+
     private void Start()
     {
-        btnHand.onClick.AddListener(OnClickHand);
         btnAnswerA.onClick.AddListener(() => OnClickAnswer(0));
         btnAnswerB.onClick.AddListener(() => OnClickAnswer(1));
         btnAnswerC.onClick.AddListener(() => OnClickAnswer(2));
@@ -33,123 +38,72 @@ public class QuizUIManager : MonoBehaviour
         txtB = btnAnswerB.GetComponentInChildren<TMP_Text>();
         txtC = btnAnswerC.GetComponentInChildren<TMP_Text>();
         txtD = btnAnswerD.GetComponentInChildren<TMP_Text>();
-        if (QuizGameManager.Instance != null && QuizGameManager.Instance.PlayerScores != null)
-        {
-            QuizGameManager.Instance.PlayerScores.OnListChanged += OnScoresChanged;
-            Debug.Log("[QuizUI] Da dang ky OnListChanged thanh cong!");
-        }
-        else
-        {
-            Debug.LogWarning("[QuizUI] QuizGameManager.Instance hoac PlayerScores la NULL trong Start()! Se thu lai trong Update().");
-        }
+        RegisterForScores();
     }
-    private bool registered = false;
+
     private void Update()
     {
-        if (QuizGameManager.Instance == null) return;
-        if (!registered && QuizGameManager.Instance.PlayerScores != null)
+        var manager = QuizGameManager.Instance;
+        if (manager == null) return;
+        if (!_registered) RegisterForScores();
+
+        var currentQuestion = manager.CurrentQuestionNumber.Value;
+        if (currentQuestion != _lastQuestionNumber)
         {
-            QuizGameManager.Instance.PlayerScores.OnListChanged += OnScoresChanged;
-            registered = true;
-            Debug.Log("[QuizUI] Da dang ky OnListChanged (tu Update)!");
-            RefreshRankingText(); 
+            _lastQuestionNumber = currentQuestion;
+            _answeredThisQuestion = false;
         }
-        int currentQ = QuizGameManager.Instance.CurrentQuestionNumber.Value;
-        if (currentQ != lastQuestionNumber)
-        {
-            lastQuestionNumber = currentQ;
-            iLostThisRound = false;
-        }
-        UpdateTimerUI();
-        UpdateQuestionUI();
-        UpdateButtonsState();
-        RefreshRankingText();
-    }
-    private void OnScoresChanged(NetworkListEvent<PlayerScoreInfo> changeEvent)
-    {
-        Debug.Log($"[QuizUI] Score thay doi! Type={changeEvent.Type}, Index={changeEvent.Index}, Score={changeEvent.Value.Score}");
-        RefreshRankingText();
-    }
-    private void RefreshRankingText()
-    {
-        if (txtRankingScores == null) return;
+
+        txtTimeRemaining.text = $"Thời gian: {Mathf.CeilToInt(Mathf.Max(0, manager.TimeRemaining.Value))}s";
+        txtQuestionNumber.text = $"Câu {currentQuestion}/{manager.maxQuestions}";
+        var question = manager.CurrentQuestion.Value;
+        txtQuestion.text = question.QuestionText.ToString();
+        if (txtA != null) txtA.text = "A. " + question.AnswerA.ToString();
+        if (txtB != null) txtB.text = "B. " + question.AnswerB.ToString();
+        if (txtC != null) txtC.text = "C. " + question.AnswerC.ToString();
+        if (txtD != null) txtD.text = "D. " + question.AnswerD.ToString();
+
+        var canAnswer = !_answeredThisQuestion && manager.TimeRemaining.Value > 0;
+        SetAnswersInteractable(canAnswer);
+        txtStatus.text = _answeredThisQuestion ? "Đã ghi nhận câu trả lời của bạn." : "Chọn một đáp án trước khi hết giờ.";
         txtRankingScores.text = QuizGameManager.LatestRankingText;
     }
-    private void UpdateTimerUI()
+
+    private void RegisterForScores()
     {
-        var gm = QuizGameManager.Instance;
-        if (gm.AnsweringClientId.Value != 9999)
-        {
-            float ansTime = gm.AnswerTimeRemaining.Value;
-            txtTimeRemaining.text = "Tra loi: " + Mathf.CeilToInt(Mathf.Max(0, ansTime)) + "s";
-            txtTimeRemaining.color = Color.yellow;
-        }
-        else
-        {
-            float time = gm.TimeRemaining.Value;
-            txtTimeRemaining.text = "Thoi gian: " + Mathf.CeilToInt(Mathf.Max(0, time)) + "s";
-            txtTimeRemaining.color = (time <= 3f) ? Color.red : Color.white;
-        }
+        if (QuizGameManager.Instance == null || QuizGameManager.Instance.PlayerScores == null) return;
+        QuizGameManager.Instance.PlayerScores.OnListChanged -= OnScoresChanged;
+        QuizGameManager.Instance.PlayerScores.OnListChanged += OnScoresChanged;
+        _registered = true;
+        RefreshRankingText();
     }
-    private void UpdateQuestionUI()
+
+    private void OnScoresChanged(NetworkListEvent<PlayerScoreInfo> changeEvent)
     {
-        var q = QuizGameManager.Instance.CurrentQuestion.Value;
-        txtQuestionNumber.text = "Cau " + QuizGameManager.Instance.CurrentQuestionNumber.Value + "/10";
-        txtQuestion.text = q.QuestionText.ToString();
-        if (txtA != null) txtA.text = "A. " + q.AnswerA.ToString();
-        if (txtB != null) txtB.text = "B. " + q.AnswerB.ToString();
-        if (txtC != null) txtC.text = "C. " + q.AnswerC.ToString();
-        if (txtD != null) txtD.text = "D. " + q.AnswerD.ToString();
+        RefreshRankingText();
     }
-    private void UpdateButtonsState()
+
+    private void RefreshRankingText()
     {
-        ulong answeringId = QuizGameManager.Instance.AnsweringClientId.Value;
-        ulong myId = NetworkManager.Singleton.LocalClientId;
-        if (answeringId == 9999)
-        {
-            if (iLostThisRound)
-            {
-                txtStatus.text = "Ban da mat luot cau nay!";
-                btnHand.interactable = false;
-            }
-            else
-            {
-                txtStatus.text = "Hay nhanh tay bam HAND!";
-                btnHand.interactable = true;
-            }
-            SetAnswersInteractable(false);
-        }
-        else if (answeringId == myId)
-        {
-            float t = QuizGameManager.Instance.AnswerTimeRemaining.Value;
-            txtStatus.text = "Ban dang tra loi! Con " + Mathf.CeilToInt(Mathf.Max(0, t)) + "s";
-            btnHand.interactable = false;
-            SetAnswersInteractable(true);
-        }
-        else
-        {
-            txtStatus.text = "Doi thu dang tra loi...";
-            btnHand.interactable = false;
-            SetAnswersInteractable(false);
-        }
+        if (txtRankingScores != null) txtRankingScores.text = QuizGameManager.LatestRankingText;
     }
-    private void SetAnswersInteractable(bool state)
+
+    private void SetAnswersInteractable(bool enabled)
     {
-        btnAnswerA.interactable = state;
-        btnAnswerB.interactable = state;
-        btnAnswerC.interactable = state;
-        btnAnswerD.interactable = state;
+        btnAnswerA.interactable = enabled;
+        btnAnswerB.interactable = enabled;
+        btnAnswerC.interactable = enabled;
+        btnAnswerD.interactable = enabled;
     }
-    private void OnClickHand()
-    {
-        QuizGameManager.Instance.SubmitHandServerRpc();
-    }
+
     private void OnClickAnswer(int index)
     {
-        QuizGameManager.Instance.SubmitAnswerServerRpc(index);
+        if (_answeredThisQuestion || QuizGameManager.Instance == null) return;
+        _answeredThisQuestion = true;
         SetAnswersInteractable(false);
-        iLostThisRound = true;
+        QuizGameManager.Instance.SubmitAnswerServerRpc(index);
     }
+
     private void OnDestroy()
     {
         if (QuizGameManager.Instance != null && QuizGameManager.Instance.PlayerScores != null)

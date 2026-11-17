@@ -1,0 +1,47 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 3aed09267ccf1004e9a3dafaed49bab4, type: 3}
+  m_Name: UnityCodeAgentSettings
+  m_EditorClassIdentifier: UnityCodeAgent.Editor::SignalLoop.UnityCodeAgent.Settings.UnityCodeAgentSettings
+  UseDynamicServicePort: 1
+  ServicePort: 5007
+  ServiceOrphanTimeoutSeconds: 20
+  MinLogLevel: 2
+  LogToFile: 0
+  ShowEventsSourceInChat: 0
+  ShowAllEventsInChat: 0
+  TelemetryMode: 2
+  OtlpEndpoint: 
+  TelemetryFilePath: 
+  TelemetryCaptureContent: 1
+  MockAgentService: 0
+  AdditionalToolAssemblyNames:
+  - UnityEngine.UI
+  - UnityEngine.UIElementsModule
+  InputActionsAssetPath: 
+  ProviderType: 0
+  ByokBaseUrl: 
+  Skills:
+    _folders:
+    - .agents/skills
+    _disabledSkills: []
+    _defaultsInitialized: 1
+  SkillsInstallTarget: 2
+  SkillsTargetPath: .agents/skills
+  _hasInitializedSkillsInstallTarget: 1
+  Model:
+    Id: auto
+    Name: Auto
+  AvailableModels:
+  - Id: auto
+    Name: Auto
+  AvailableModelsBaseUrl: 

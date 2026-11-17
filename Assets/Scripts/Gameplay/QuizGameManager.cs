@@ -40,19 +40,17 @@ public class QuizGameManager : NetworkBehaviour
     public static QuizGameManager Instance;
     [Header("Game Settings")]
     public float timePerQuestion = 10f;
-    public float timeToAnswer = 3f;
     public int maxQuestions = 10;
     public string endSceneName = "EndScene";
     public NetworkVariable<QuizQuestionData> CurrentQuestion = new NetworkVariable<QuizQuestionData>();
     public NetworkVariable<float> TimeRemaining = new NetworkVariable<float>();
     public NetworkVariable<int> CurrentQuestionNumber = new NetworkVariable<int>(1);
-    public NetworkVariable<ulong> AnsweringClientId = new NetworkVariable<ulong>(9999);
-    public NetworkVariable<float> AnswerTimeRemaining = new NetworkVariable<float>();
     public NetworkList<PlayerScoreInfo> PlayerScores;
-    private HashSet<ulong> wrongThisRound = new HashSet<ulong>();
+    private HashSet<ulong> submittedThisRound = new HashSet<ulong>();
     private Dictionary<ulong, string> playerIPs = new Dictionary<ulong, string>();
     public static List<PlayerScoreInfo> FinalScores = new List<PlayerScoreInfo>();
     private List<QuizQuestionData> questionPool = new List<QuizQuestionData>();
+    private long questionEndsAtUnixMs;
     private void Awake()
     {
         Instance = this;
@@ -122,9 +120,8 @@ public class QuizGameManager : NetworkBehaviour
         CurrentQuestion.Value = questionPool[randomIndex];
         questionPool.RemoveAt(randomIndex);
         TimeRemaining.Value = timePerQuestion;
-        AnsweringClientId.Value = 9999;
-        AnswerTimeRemaining.Value = 0;
-        wrongThisRound.Clear(); 
+        questionEndsAtUnixMs = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds() + (long)(timePerQuestion * 1000f);
+        submittedThisRound.Clear();
         NewRoundClientRpc();
         Debug.Log($"[QuizGame] === Câu {CurrentQuestionNumber.Value}: {CurrentQuestion.Value.QuestionText} ===");
     }
@@ -135,54 +132,23 @@ public class QuizGameManager : NetworkBehaviour
     private void Update()
     {
         if (!IsServer) return;
-        if (AnsweringClientId.Value == 9999)
+        var remaining = Math.Max(0, questionEndsAtUnixMs - DateTimeOffset.UtcNow.ToUnixTimeMilliseconds());
+        TimeRemaining.Value = remaining / 1000f;
+        if (remaining == 0)
         {
-            TimeRemaining.Value -= Time.deltaTime;
-            if (TimeRemaining.Value <= 0)
-            {
-                CurrentQuestionNumber.Value++;
-                StartNextQuestion();
-            }
-        }
-        else
-        {
-            AnswerTimeRemaining.Value -= Time.deltaTime;
-            if (AnswerTimeRemaining.Value <= 0)
-            {
-                Debug.Log($"[QuizGame] Player {AnsweringClientId.Value} hết 3s, coi như sai!");
-                HandleWrongAnswer(AnsweringClientId.Value);
-            }
-        }
-    }
-    private void HandleWrongAnswer(ulong clientId)
-    {
-        wrongThisRound.Add(clientId);
-        AnsweringClientId.Value = 9999;
-        NotifyWrongClientRpc(clientId);
-    }
-    [ClientRpc]
-    private void NotifyWrongClientRpc(ulong wrongClientId)
-    {
-    }
-    [HideInInspector] public bool localPlayerWrongThisRound = false;
-    [ServerRpc(RequireOwnership = false)]
-    public void SubmitHandServerRpc(ServerRpcParams rpcParams = default)
-    {
-        ulong clientId = rpcParams.Receive.SenderClientId;
-        if (AnsweringClientId.Value == 9999 && !wrongThisRound.Contains(clientId))
-        {
-            AnsweringClientId.Value = clientId;
-            AnswerTimeRemaining.Value = timeToAnswer;
-            Debug.Log($"[QuizGame] Player {clientId} giơ tay!");
+            CurrentQuestionNumber.Value++;
+            StartNextQuestion();
         }
     }
     [ServerRpc(RequireOwnership = false)]
     public void SubmitAnswerServerRpc(int answerIndex, ServerRpcParams rpcParams = default)
     {
         ulong clientId = rpcParams.Receive.SenderClientId;
-        if (AnsweringClientId.Value != clientId) return;
+        if (submittedThisRound.Contains(clientId) || DateTimeOffset.UtcNow.ToUnixTimeMilliseconds() >= questionEndsAtUnixMs) return;
+        if (answerIndex < 0 || answerIndex > 3) return;
         int pIndex = GetPlayerIndex(clientId);
         if (pIndex < 0) return;
+        submittedThisRound.Add(clientId);
         if (answerIndex == CurrentQuestion.Value.CorrectIndex)
         {
             var p = PlayerScores[pIndex];
@@ -190,19 +156,11 @@ public class QuizGameManager : NetworkBehaviour
             PlayerScores[pIndex] = p;
             Debug.Log($"[QuizGame] Player {clientId} ĐÚNG! Score = {p.Score}");
             BroadcastScores();
-            AnsweringClientId.Value = 9999;
-            Invoke(nameof(GoToNextQuestion), 0.5f);
         }
         else
         {
             Debug.Log($"[QuizGame] Player {clientId} SAI!");
-            HandleWrongAnswer(clientId);
         }
-    }
-    private void GoToNextQuestion()
-    {
-        CurrentQuestionNumber.Value++;
-        StartNextQuestion();
     }
     private int GetPlayerIndex(ulong clientId)
     {
