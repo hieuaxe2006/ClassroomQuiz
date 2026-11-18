@@ -1,4 +1,5 @@
 using System;
+using System.Collections;
 using System.Collections.Generic;
 using System.Threading.Tasks;
 using ClassroomQuiz.Managers;
@@ -53,6 +54,25 @@ namespace ClassroomQuiz.Gameplay
             public int correctCount;
             public int incorrectCount;
             public RevealData answerReveal;
+            public QuestionPointData[] points;
+        }
+
+        [Serializable]
+        private sealed class QuestionPointData
+        {
+            public string playerId;
+            public string displayName;
+            public string avatarKey;
+            public int pointsAwarded;
+        }
+
+        [Serializable]
+        private sealed class WinnerData
+        {
+            public string winnerPlayerId;
+            public string winnerName;
+            public string winnerAvatarKey;
+            public int winnerScore;
         }
 
         [Serializable]
@@ -105,6 +125,7 @@ namespace ClassroomQuiz.Gameplay
         private bool _answeredThisQuestion;
         private bool _countdownComplete;
         private float _countdownOverlayUntil;
+        private bool _transitioningToResults;
 
         private void Awake()
         {
@@ -113,14 +134,17 @@ namespace ClassroomQuiz.Gameplay
             _role = ClassroomQuizSessionState.Role;
             _mode = ClassroomQuizSessionState.Mode;
             _serverClockOffsetMs = ClassroomQuizSessionState.ServerClockOffsetMs;
+            _ui.StudentPanel.SetActive(_role != "Teacher");
             _ui.TeacherPanel.SetActive(_role == "Teacher");
             _ui.FeedbackPanel.SetActive(false);
+            _ui.WinnerOverlay.SetActive(false);
             _ui.LessonTitle.text = string.IsNullOrWhiteSpace(ClassroomQuizSessionState.LessonTitle)
                 ? "Toán lớp 6"
                 : ClassroomQuizSessionState.LessonTitle;
             _ui.ModeLabel.text = _mode == "Exam" ? "THI" : "HỌC";
             _ui.StudentScoreText.text = "Điểm: 0";
             _ui.TeacherStatusText.text = "Bảng xếp hạng sẽ cập nhật khi học sinh trả lời.";
+            RenderClassroom(ClassroomQuizSessionState.RoomPlayers);
             if (ClassroomQuizSessionState.CountdownEndsAtUnixMs <= 0)
             {
                 _ui.CountdownOverlay.SetActive(false);
@@ -128,6 +152,7 @@ namespace ClassroomQuiz.Gameplay
             }
             else
             {
+                _ui.CountdownOverlay.SetActive(true);
                 _ui.CountdownText.text = "3";
                 _ui.CountdownSubtext.text = "Server đang khởi động buổi học…";
             }
@@ -248,7 +273,7 @@ namespace ClassroomQuiz.Gameplay
                     SaveTeacherLeaderboard(message);
                     break;
                 case "GameEnded":
-                    SceneManager.LoadScene("EndScene");
+                    ShowWinnerAndLoadResults(message);
                     break;
                 case "ReturnToMenu":
                     ClassroomQuizSessionState.ClearRoom();
@@ -298,6 +323,7 @@ namespace ClassroomQuiz.Gameplay
             _answeredThisQuestion = false;
             _selectedAnswerIndex = -1;
             _ui.FeedbackPanel.SetActive(false);
+            HideQuestionPoints();
             _ui.QuestionCount.text = $"Câu {_questionIndex + 1} / {_questionCount}";
             _ui.ModeLabel.text = _mode == "Exam" ? "THI" : "HỌC";
             _ui.Prompt.text = data.prompt;
@@ -377,6 +403,7 @@ namespace ClassroomQuiz.Gameplay
             }
 
             SetAnswerButtonsInteractable(false);
+            ShowQuestionPoints(data?.points);
             _ui.FeedbackPanel.SetActive(false);
             if (_role == "Teacher")
             {
@@ -396,6 +423,103 @@ namespace ClassroomQuiz.Gameplay
             {
                 _ui.Status.text = "Câu hỏi đã hết thời gian. Đang chờ câu tiếp theo…";
             }
+        }
+
+        private void RenderClassroom(ClassroomQuizPlayerSnapshot[] players)
+        {
+            players ??= Array.Empty<ClassroomQuizPlayerSnapshot>();
+            var teacher = Array.Find(players, player => player != null && player.role == "Teacher");
+            _ui.TeacherAvatar.text = string.IsNullOrWhiteSpace(teacher?.avatarKey) ? "A" : teacher.avatarKey;
+            _ui.TeacherName.text = string.IsNullOrWhiteSpace(teacher?.displayName) ? "Giáo viên" : teacher.displayName;
+
+            foreach (var seat in _ui.StudentSeats)
+            {
+                seat.Avatar.text = "—";
+                seat.Name.text = "Chỗ trống";
+                seat.Root.SetActive(true);
+                seat.Points.gameObject.SetActive(false);
+            }
+
+            foreach (var student in players)
+            {
+                if (student == null || student.role == "Teacher" || student.seatIndex < 0 || student.seatIndex >= _ui.StudentSeats.Length) continue;
+                var seat = _ui.StudentSeats[student.seatIndex];
+                seat.Avatar.text = string.IsNullOrWhiteSpace(student.avatarKey) ? "A" : student.avatarKey;
+                seat.Name.text = student.displayName ?? "Học sinh";
+            }
+        }
+
+        private void ShowQuestionPoints(QuestionPointData[] points)
+        {
+            HideQuestionPoints();
+            foreach (var student in ClassroomQuizSessionState.RoomPlayers)
+            {
+                if (student == null || student.role == "Teacher" || student.seatIndex < 0 || student.seatIndex >= _ui.StudentSeats.Length) continue;
+                QuestionPointData result = null;
+                if (points != null)
+                {
+                    foreach (var point in points)
+                    {
+                        if (point != null && point.playerId == student.playerId)
+                        {
+                            result = point;
+                            break;
+                        }
+                    }
+                }
+
+                var popup = _ui.StudentSeats[student.seatIndex].Points;
+                var awarded = result?.pointsAwarded ?? 0;
+                popup.text = awarded > 0 ? $"+{awarded}" : "+0";
+                popup.color = awarded > 0 ? RuntimeUiFactory.Green : RuntimeUiFactory.Red;
+                popup.gameObject.SetActive(true);
+            }
+            StartCoroutine(HideQuestionPointsAfterDelay());
+        }
+
+        private IEnumerator HideQuestionPointsAfterDelay()
+        {
+            yield return new WaitForSecondsRealtime(3f);
+            HideQuestionPoints();
+        }
+
+        private void HideQuestionPoints()
+        {
+            if (_ui?.StudentSeats == null) return;
+            foreach (var seat in _ui.StudentSeats)
+            {
+                if (seat?.Points != null) seat.Points.gameObject.SetActive(false);
+            }
+        }
+
+        private void ShowWinnerAndLoadResults(NetworkMessage message)
+        {
+            if (_transitioningToResults) return;
+            _transitioningToResults = true;
+            WinnerData winner = null;
+            if (!string.IsNullOrWhiteSpace(message.Data))
+            {
+                try
+                {
+                    winner = JsonUtility.FromJson<WinnerData>(message.Data);
+                }
+                catch (Exception exception)
+                {
+                    Debug.LogWarning($"Winner result data was invalid: {exception.Message}");
+                }
+            }
+
+            _ui.CountdownOverlay.SetActive(false);
+            _ui.WinnerAvatar.text = string.IsNullOrWhiteSpace(winner?.winnerAvatarKey) ? "A" : winner.winnerAvatarKey;
+            _ui.WinnerName.text = string.IsNullOrWhiteSpace(winner?.winnerName) ? "Chưa có học sinh" : winner.winnerName;
+            _ui.WinnerOverlay.SetActive(true);
+            StartCoroutine(LoadResultsAfterWinnerDisplay());
+        }
+
+        private IEnumerator LoadResultsAfterWinnerDisplay()
+        {
+            yield return new WaitForSecondsRealtime(3f);
+            SceneManager.LoadScene("EndScene");
         }
 
         private async void SubmitAnswer(int answerIndex)
@@ -442,8 +566,8 @@ namespace ClassroomQuiz.Gameplay
                     $"Đúng: {result.correctCount}  ·  Sai: {result.incorrectCount}  ·  Bỏ qua: {result.unansweredCount}\n" +
                     $"Điểm: {result.score}  ·  Thời gian trả lời: {result.totalAnswerTimeMilliseconds / 1000f:0.0} giây\n\n" +
                     $"TOP 1: {result.topStudentName}  ·  {result.topStudentScore} điểm\n\n{result.encouragement}";
-                PlayerPrefs.SetString("ClassroomQuiz.LastLocalResult", ClassroomQuizSessionState.LastPersonalResult);
-                PlayerPrefs.Save();
+                ClassroomQuizPreferences.SetString("ClassroomQuiz.LastLocalResult", ClassroomQuizSessionState.LastPersonalResult);
+                ClassroomQuizPreferences.Save();
             }
             catch (Exception exception)
             {
@@ -474,8 +598,8 @@ namespace ClassroomQuiz.Gameplay
                     }
                 }
                 ClassroomQuizSessionState.LastTeacherLeaderboard = string.Join("\n", lines);
-                PlayerPrefs.SetString("ClassroomQuiz.LastLocalResult", ClassroomQuizSessionState.LastTeacherLeaderboard);
-                PlayerPrefs.Save();
+                ClassroomQuizPreferences.SetString("ClassroomQuiz.LastLocalResult", ClassroomQuizSessionState.LastTeacherLeaderboard);
+                ClassroomQuizPreferences.Save();
             }
             catch (Exception exception)
             {

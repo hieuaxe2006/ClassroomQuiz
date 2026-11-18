@@ -12,7 +12,8 @@ namespace ClassroomQuiz.Gameplay
 {
     public sealed class EndSceneUIController : MonoBehaviour
     {
-        private sealed class EndUiRefs
+        [Serializable]
+        public sealed class EndUiRefs
         {
             public TMP_Text Title;
             public TMP_Text Results;
@@ -32,6 +33,23 @@ namespace ClassroomQuiz.Gameplay
             public string mode;
             public long serverNowUnixMs;
             public long startAtUnixMs;
+        }
+
+        [Serializable]
+        private sealed class RoomStateData
+        {
+            public RoomPlayerData[] players;
+        }
+
+        [Serializable]
+        private sealed class RoomPlayerData
+        {
+            public string playerId;
+            public string displayName;
+            public string avatarKey;
+            public string role;
+            public int seatIndex;
+            public long joinSequence;
         }
 
         private EndUiRefs _ui;
@@ -75,8 +93,14 @@ namespace ClassroomQuiz.Gameplay
             }
         }
 
-        private EndUiRefs BuildUi()
+        public static EndUiRefs BuildUi()
         {
+            var authoredUi = UnityEngine.Object.FindFirstObjectByType<EndSceneUiReferences>(FindObjectsInactive.Include);
+            if (authoredUi != null && authoredUi.References != null)
+            {
+                return authoredUi.References;
+            }
+
             var refs = new EndUiRefs();
             var canvas = RuntimeUiFactory.CreateCanvas("ClassroomQuiz Results Canvas");
             var background = RuntimeUiFactory.Panel(canvas.transform, "Background", Vector2.zero, Vector2.zero, RuntimeUiFactory.Background);
@@ -90,6 +114,7 @@ namespace ClassroomQuiz.Gameplay
             refs.Restart = RuntimeUiFactory.Button(background.transform, "Restart Room", "Chơi lại", new Vector2(300, 66), new Vector2(-190, -390), RuntimeUiFactory.Green, null, fontSize: 22);
             refs.EndSession = RuntimeUiFactory.Button(background.transform, "End Session", "Kết thúc buổi học", new Vector2(360, 66), new Vector2(230, -390), RuntimeUiFactory.Red, null, fontSize: 22);
             refs.Leave = RuntimeUiFactory.Button(background.transform, "Leave", "Quay về menu", new Vector2(220, 54), new Vector2(-820, 478), RuntimeUiFactory.Navy, null, fontSize: 20);
+            canvas.gameObject.AddComponent<EndSceneUiReferences>().SetReferences(refs);
             return refs;
         }
 
@@ -184,7 +209,11 @@ namespace ClassroomQuiz.Gameplay
 
         private void OnMessageReceived(NetworkMessage message)
         {
-            if (message.Type == "ReturnToMenu")
+            if (message.Type == "RoomStateUpdate")
+            {
+                ApplyRoomRoster(message.Data);
+            }
+            else if (message.Type == "ReturnToMenu")
             {
                 ClassroomQuizSessionState.ClearRoom();
                 SceneManager.LoadScene("StartScene");
@@ -199,6 +228,28 @@ namespace ClassroomQuiz.Gameplay
                 _ui.EndSession.interactable = true;
                 _ui.Restart.interactable = true;
                 _ui.Status.text = message.Error ?? message.Message ?? "Server báo lỗi.";
+            }
+        }
+
+        private static void ApplyRoomRoster(string json)
+        {
+            if (string.IsNullOrWhiteSpace(json)) return;
+            try
+            {
+                var state = JsonUtility.FromJson<RoomStateData>(json);
+                ClassroomQuizSessionState.RoomPlayers = Array.ConvertAll(state?.players ?? Array.Empty<RoomPlayerData>(), player => new ClassroomQuizPlayerSnapshot
+                {
+                    playerId = player.playerId,
+                    displayName = player.displayName,
+                    avatarKey = string.IsNullOrWhiteSpace(player.avatarKey) ? "A" : player.avatarKey,
+                    role = player.role,
+                    seatIndex = player.seatIndex,
+                    joinSequence = player.joinSequence
+                });
+            }
+            catch (Exception exception)
+            {
+                Debug.LogWarning($"Restart roster could not be read: {exception.Message}");
             }
         }
 

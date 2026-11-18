@@ -7,7 +7,8 @@ using UnityEngine.UI;
 
 namespace ClassroomQuiz.UI
 {
-    internal sealed class StartSceneUiRefs
+    [System.Serializable]
+    public sealed class StartSceneUiRefs
     {
         public Canvas Canvas;
         public GameObject MainPanel;
@@ -92,7 +93,7 @@ namespace ClassroomQuiz.UI
         public RectTransform StudyListContent;
     }
 
-    internal sealed class QuestionEditorRow
+    public sealed class QuestionEditorRow
     {
         public TMP_InputField Prompt;
         public TMP_InputField Explanation;
@@ -121,10 +122,16 @@ namespace ClassroomQuiz.UI
         }
     }
 
-    internal static class StartSceneRuntimeUi
+    public static class StartSceneRuntimeUi
     {
         public static StartSceneUiRefs Build(Transform owner)
         {
+            var authoredUi = UnityEngine.Object.FindFirstObjectByType<StartSceneUiReferences>(FindObjectsInactive.Include);
+            if (authoredUi != null && authoredUi.References != null)
+            {
+                return authoredUi.References;
+            }
+
             var refs = new StartSceneUiRefs();
             refs.Canvas = RuntimeUiFactory.CreateCanvas("ClassroomQuiz Start Canvas");
             BuildMain(refs);
@@ -139,6 +146,7 @@ namespace ClassroomQuiz.UI
             BuildConnecting(refs);
             BuildQuestionEditor(refs);
             ShowOnly(refs, refs.MainPanel);
+            refs.Canvas.gameObject.AddComponent<StartSceneUiReferences>().SetReferences(refs);
             return refs;
         }
 
@@ -181,7 +189,7 @@ namespace ClassroomQuiz.UI
             refs.CharacterPanel = Screen(refs, "Character Screen", RuntimeUiFactory.Background);
             Card(refs.CharacterPanel.transform, "Card", new Vector2(1000, 720), Vector2.zero);
             RuntimeUiFactory.Label(refs.CharacterPanel.transform, "Title", "Chọn avatar", new Vector2(820, 72), new Vector2(0, 270), 42, RuntimeUiFactory.Navy, TextAlignmentOptions.Center, true);
-            RuntimeUiFactory.Label(refs.CharacterPanel.transform, "Hint", "Avatar chỉ lưu trên thiết bị này.", new Vector2(820, 44), new Vector2(0, 218), 20, RuntimeUiFactory.Muted, TextAlignmentOptions.Center);
+            RuntimeUiFactory.Label(refs.CharacterPanel.transform, "Hint", "Avatar được lưu vào tài khoản của bạn.", new Vector2(820, 44), new Vector2(0, 218), 20, RuntimeUiFactory.Muted, TextAlignmentOptions.Center);
             refs.AvatarPreview = RuntimeUiFactory.Label(refs.CharacterPanel.transform, "Avatar Preview", "A", new Vector2(220, 190), new Vector2(0, 90), 96, RuntimeUiFactory.Blue, TextAlignmentOptions.Center, true);
             var avatars = new[] { "A", "B", "C", "D" };
             refs.AvatarChoices = avatars;

@@ -68,6 +68,7 @@ internal sealed class VerifiedAccount
     public long AccountId { get; set; }
     public string DisplayName { get; set; } = string.Empty;
     public string Email { get; set; } = string.Empty;
+    public string AvatarKey { get; set; } = "A";
 }
 
 internal sealed class RoomHistoryRecord

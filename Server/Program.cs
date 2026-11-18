@@ -92,6 +92,8 @@ internal sealed class PlayerSession
     public RoomSession? Room { get; set; }
     public string Role { get; set; } = "Student";
     public long AccountId { get; set; }
+    public string AvatarKey { get; set; } = "A";
+    public long RoomJoinSequence { get; set; }
     public int CorrectCount { get; set; }
     public long TotalAnswerTimeMilliseconds { get; set; }
     public int SubmittedCount { get; set; }
@@ -121,6 +123,7 @@ internal sealed class RoomSession
     public required List<QuestionDefinition> Questions { get; init; }
     public required Dictionary<string, PlayerSession> Players { get; init; }
     public required SemaphoreSlim Gate { get; init; }
+    public long NextStudentJoinSequence { get; set; }
     public Dictionary<string, AnswerRecord> Answers { get; } = new(StringComparer.Ordinal);
     public bool Started { get; set; }
     public bool Ended { get; set; }
@@ -151,7 +154,7 @@ internal sealed class TcpGameServer
     public TcpGameServer(IPAddress ipAddress, int port, int studentCapacity)
     {
         _listener = new TcpListener(ipAddress, port);
-        _studentCapacity = Math.Clamp(studentCapacity, 1, 200);
+        _studentCapacity = Math.Clamp(studentCapacity, 1, 16);
     }
 
     public async Task StartAsync(CancellationToken cancellationToken)
@@ -286,6 +289,7 @@ internal sealed class TcpGameServer
             session.HelloReceived = true;
             session.AccountId = account.AccountId;
             session.DisplayName = NormalizeName(account.DisplayName);
+            session.AvatarKey = NormalizeAvatar(account.AvatarKey);
             await SendAsync(session, new NetworkMessage
             {
                 Type = MessageTypes.Welcome,
@@ -420,6 +424,7 @@ internal sealed class TcpGameServer
             candidate.Players[session.PlayerId] = session;
             session.Room = candidate;
             session.Role = "Teacher";
+            session.RoomJoinSequence = 0;
             candidate.Gate.Release();
             if (_rooms.TryAdd(roomCode, candidate))
             {
@@ -477,13 +482,13 @@ internal sealed class TcpGameServer
             }
             else if (!room.Players.ContainsKey(session.PlayerId) && room.Players.Values.Count(p => p.Role != "Teacher") >= room.StudentCapacity)
             {
-                failure = "Phòng đã đủ 40 học sinh.";
+                failure = $"Phòng đã đủ {room.StudentCapacity} học sinh.";
             }
             else
             {
                 session.Room = room;
                 session.Role = "Student";
-                session.DisplayName = NormalizeName(message.PlayerName ?? session.DisplayName);
+                session.RoomJoinSequence = ++room.NextStudentJoinSequence;
                 room.Players[session.PlayerId] = session;
             }
         }
@@ -749,6 +754,7 @@ internal sealed class TcpGameServer
                 var waitMilliseconds = Math.Max(0, (int)Math.Min(int.MaxValue, room.CurrentQuestionEndsUnixMs - DateTimeOffset.UtcNow.ToUnixTimeMilliseconds()));
                 await Task.Delay(waitMilliseconds, room.GameCancellation.Token).ConfigureAwait(false);
                 await EndQuestionAsync(room, question, index).ConfigureAwait(false);
+                await Task.Delay(TimeSpan.FromSeconds(3), room.GameCancellation.Token).ConfigureAwait(false);
             }
 
             await EndGameAsync(room).ConfigureAwait(false);
@@ -795,7 +801,14 @@ internal sealed class TcpGameServer
                 answeredCount,
                 correctCount = player.Role == "Teacher" ? correctCount : (int?)null,
                 incorrectCount = player.Role == "Teacher" ? answeredCount - correctCount : (int?)null,
-                answerReveal = room.Mode == "Study" ? new { correctIndex = question.CorrectIndex, explanation = question.Explanation } : null
+                answerReveal = room.Mode == "Study" ? new { correctIndex = question.CorrectIndex, explanation = question.Explanation } : null,
+                points = players.Where(student => student.Role != "Teacher").Select(student => new
+                {
+                    playerId = student.PlayerId,
+                    displayName = student.DisplayName,
+                    avatarKey = student.AvatarKey,
+                    pointsAwarded = answers.TryGetValue(student.PlayerId, out var answer) ? answer.ScoreAwarded : 0
+                }).ToArray()
             };
             await SendAsync(player, new NetworkMessage
             {
@@ -1027,7 +1040,14 @@ internal sealed class TcpGameServer
         {
             Type = MessageTypes.GameEnded,
             RoomCode = room.RoomCode,
-            Message = "Buổi quiz đã kết thúc."
+            Message = "Buổi quiz đã kết thúc.",
+            Data = SerializeData(new
+            {
+                winnerPlayerId = students.Length > 0 ? students[0].PlayerId : string.Empty,
+                winnerName = students.Length > 0 ? students[0].DisplayName : "Chưa có học sinh",
+                winnerAvatarKey = students.Length > 0 ? students[0].AvatarKey : "A",
+                winnerScore = students.Length > 0 ? students[0].Score : 0
+            })
         }).ConfigureAwait(false);
     }
 
@@ -1113,8 +1133,20 @@ internal sealed class TcpGameServer
         await room.Gate.WaitAsync().ConfigureAwait(false);
         try
         {
-            players = room.Players.Values.ToArray();
-            playerInfos = players.Select(player => (object)new { playerId = player.PlayerId, displayName = player.DisplayName, role = player.Role }).ToArray();
+            players = room.Players.Values
+                .OrderBy(player => player.Role == "Teacher" ? 0 : 1)
+                .ThenBy(player => player.Role == "Teacher" ? 0 : player.RoomJoinSequence)
+                .ToArray();
+            var studentSeat = 0;
+            playerInfos = players.Select(player => (object)new
+            {
+                playerId = player.PlayerId,
+                displayName = player.DisplayName,
+                avatarKey = player.AvatarKey,
+                role = player.Role,
+                seatIndex = player.Role == "Teacher" ? -1 : studentSeat++,
+                joinSequence = player.RoomJoinSequence
+            }).ToArray();
             roomCode = room.RoomCode;
             roomName = room.RoomName;
             lessonId = room.LessonId;
@@ -1393,11 +1425,16 @@ internal sealed class TcpGameServer
     private static string NormalizeName(string? name)
     {
         var result = string.IsNullOrWhiteSpace(name) ? "Guest" : name.Trim();
-        if (result.Length > 24)
+        if (result.Length > 48)
         {
-            result = result[..24];
+            result = result[..48];
         }
         return result;
+    }
+
+    private static string NormalizeAvatar(string? avatar)
+    {
+        return avatar is "A" or "B" or "C" or "D" ? avatar : "A";
     }
 
     private static string NormalizeRoomName(string? roomName, string lessonTitle)
@@ -1456,7 +1493,7 @@ internal static class Program
     {
         var address = Environment.GetEnvironmentVariable("CLASSROOM_QUIZ_BIND_IP") ?? "0.0.0.0";
         var port = ReadIntEnvironment("CLASSROOM_QUIZ_PORT", DefaultPort, 1, 65535);
-        var studentCapacity = ReadIntEnvironment("CLASSROOM_QUIZ_MAX_STUDENTS", 40, 1, 200);
+        var studentCapacity = ReadIntEnvironment("CLASSROOM_QUIZ_MAX_STUDENTS", 16, 1, 16);
         for (var i = 0; i < args.Length; i++)
         {
             if (args[i] == "--ip" && i + 1 < args.Length)

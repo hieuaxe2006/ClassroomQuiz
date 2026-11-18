@@ -1,4 +1,5 @@
 using System;
+using System.Collections;
 using System.Collections.Generic;
 using System.Linq;
 using ClassroomQuiz.Data;
@@ -37,7 +38,27 @@ namespace ClassroomQuiz.UI
         {
             public string playerId;
             public string displayName;
+            public string avatarKey;
             public string role;
+            public int seatIndex;
+            public long joinSequence;
+        }
+
+        [Serializable]
+        private sealed class LessonCatalogResponse
+        {
+            public bool success;
+            public string error;
+            public LessonCatalogEntry[] lessons;
+        }
+
+        [Serializable]
+        private sealed class LessonCatalogEntry
+        {
+            public int lessonId;
+            public string title;
+            public string summary;
+            public LessonQuestionData[] questions;
         }
 
         [Serializable]
@@ -133,7 +154,43 @@ namespace ClassroomQuiz.UI
             PopulateLessonDropdown();
             RefreshWelcome();
             UpdateLessonSummary();
+            StartCoroutine(LoadLessonCatalog());
             SetScreen(_ui.MainPanel);
+        }
+
+        private IEnumerator LoadLessonCatalog()
+        {
+            var token = ClassroomQuizPreferences.GetString(PhpApiClient.AccountTokenPreferenceKey, string.Empty);
+            if (string.IsNullOrWhiteSpace(token)) yield break;
+
+            LessonCatalogResponse catalog = null;
+            yield return PhpApiClient.Post(PhpApiClient.ConfiguredUrl,
+                new ClassroomQuizApiRequest { action = "getLessonCatalog" }, token,
+                response =>
+                {
+                    if (response != null && response.success && !string.IsNullOrWhiteSpace(response.rawJson))
+                    {
+                        catalog = JsonUtility.FromJson<LessonCatalogResponse>(response.rawJson);
+                    }
+                    else if (response != null)
+                    {
+                        _ui.MainStatusText.text = response.error;
+                    }
+                });
+
+            if (catalog == null || !catalog.success || catalog.lessons == null) yield break;
+            foreach (var entry in catalog.lessons)
+            {
+                if (entry == null || entry.lessonId < 1 || entry.lessonId > _lessons.Count || entry.questions == null) continue;
+                var lesson = _lessons[entry.lessonId - 1];
+                lesson.title = entry.title;
+                lesson.summary = entry.summary;
+                lesson.questions = new List<LessonQuestionData>(entry.questions);
+                lesson.status = LessonStatus.Ready;
+                lesson.isDemo = entry.lessonId == 1;
+            }
+            PopulateLessonDropdown();
+            UpdateLessonSummary();
         }
 
         private void Start()
@@ -220,12 +277,12 @@ namespace ClassroomQuiz.UI
 
         private void ConfigureSettingsDefaults()
         {
-            _ui.ServerAddressInput.text = PlayerPrefs.GetString("ClassroomQuiz.ServerAddress", "127.0.0.1");
-            _ui.ServerPortInput.text = PlayerPrefs.GetInt("ClassroomQuiz.ServerPort", 7777).ToString();
-            var volume = PlayerPrefs.GetFloat("ClassroomQuiz.Volume", 1f);
+            _ui.ServerAddressInput.text = ClassroomQuizPreferences.GetString("ClassroomQuiz.ServerAddress", "127.0.0.1");
+            _ui.ServerPortInput.text = ClassroomQuizPreferences.GetInt("ClassroomQuiz.ServerPort", 7777).ToString();
+            var volume = ClassroomQuizPreferences.GetFloat("ClassroomQuiz.Volume", 1f);
             _ui.VolumeSlider.SetValueWithoutNotify(volume);
             AudioListener.volume = volume;
-            _ui.AvatarPreview.text = PlayerPrefs.GetString("ClassroomQuiz.Avatar", "A");
+            _ui.AvatarPreview.text = ClassroomQuizPreferences.GetString("ClassroomQuiz.Avatar", "A");
             _ui.ConnectingRetryButton.gameObject.SetActive(false);
         }
 
@@ -252,8 +309,8 @@ namespace ClassroomQuiz.UI
 
         private void RefreshWelcome()
         {
-            var name = PlayerPrefs.GetString("ClassroomQuiz.DisplayName", "Guest");
-            var avatar = PlayerPrefs.GetString("ClassroomQuiz.Avatar", "A");
+            var name = ClassroomQuizPreferences.GetString("ClassroomQuiz.DisplayName", "Guest");
+            var avatar = ClassroomQuizPreferences.GetString("ClassroomQuiz.Avatar", "A");
             _ui.WelcomeText.text = $"Xin chào {name}  ·  Avatar {avatar}";
         }
 
@@ -310,13 +367,13 @@ namespace ClassroomQuiz.UI
                 return;
             }
 
-            PlayerPrefs.SetString("ClassroomQuiz.ServerAddress", address);
-            PlayerPrefs.SetInt("ClassroomQuiz.ServerPort", port);
-            PlayerPrefs.Save();
+            ClassroomQuizPreferences.SetString("ClassroomQuiz.ServerAddress", address);
+            ClassroomQuizPreferences.SetInt("ClassroomQuiz.ServerPort", port);
+            ClassroomQuizPreferences.Save();
 
             try
             {
-                var name = PlayerPrefs.GetString("ClassroomQuiz.DisplayName", "Guest");
+                var name = ClassroomQuizPreferences.GetString("ClassroomQuiz.DisplayName", "Guest");
                 var connected = await _tcpClient.ConnectAsync(address, port, name);
                 _isConnecting = false;
                 if (!connected)
@@ -365,7 +422,7 @@ namespace ClassroomQuiz.UI
                 LessonId = lesson.lessonId,
                 LessonTitle = lesson.title,
                 DurationSeconds = DurationForIndex(_ui.DurationDropdown.value),
-                PlayerName = PlayerPrefs.GetString("ClassroomQuiz.DisplayName", "Guest"),
+                PlayerName = ClassroomQuizPreferences.GetString("ClassroomQuiz.DisplayName", "Guest"),
                 Payload = JsonUtility.ToJson(payload)
             };
 
@@ -410,7 +467,7 @@ namespace ClassroomQuiz.UI
                     Type = "JoinRoomRequest",
                     RequestId = Guid.NewGuid().ToString("N"),
                     RoomCode = code,
-                    PlayerName = PlayerPrefs.GetString("ClassroomQuiz.DisplayName", "Guest")
+                    PlayerName = ClassroomQuizPreferences.GetString("ClassroomQuiz.DisplayName", "Guest")
                 });
             }
             catch (Exception exception)
@@ -538,6 +595,16 @@ namespace ClassroomQuiz.UI
             ClassroomQuizSessionState.LessonTitle = state.lessonTitle ?? string.Empty;
             ClassroomQuizSessionState.DurationSeconds = state.durationSeconds > 0 ? state.durationSeconds : 15;
             ClassroomQuizSessionState.QuestionCount = state.questionCount;
+            ClassroomQuizSessionState.RoomPlayers = (state.players ?? Array.Empty<RoomPlayerData>())
+                .Select(player => new ClassroomQuizPlayerSnapshot
+                {
+                    playerId = player.playerId,
+                    displayName = player.displayName,
+                    avatarKey = string.IsNullOrWhiteSpace(player.avatarKey) ? "A" : player.avatarKey,
+                    role = player.role,
+                    seatIndex = player.seatIndex,
+                    joinSequence = player.joinSequence
+                }).ToArray();
             OpenWaitingRoom();
 
             var players = state.players ?? Array.Empty<RoomPlayerData>();
@@ -661,7 +728,7 @@ namespace ClassroomQuiz.UI
 
         private void ShowCharacterPanel()
         {
-            _pendingAvatar = PlayerPrefs.GetString("ClassroomQuiz.Avatar", "A");
+            _pendingAvatar = ClassroomQuizPreferences.GetString("ClassroomQuiz.Avatar", "A");
             _ui.AvatarPreview.text = _pendingAvatar;
             RefreshAvatarSelection();
             SetScreen(_ui.CharacterPanel);
@@ -674,7 +741,7 @@ namespace ClassroomQuiz.UI
             SetHistoryListVisible(true);
             ClearContent(_ui.HistoryContent);
 
-            var token = PlayerPrefs.GetString(PhpApiClient.AccountTokenPreferenceKey, string.Empty);
+            var token = ClassroomQuizPreferences.GetString(PhpApiClient.AccountTokenPreferenceKey, string.Empty);
             if (string.IsNullOrWhiteSpace(token))
             {
                 _ui.HistoryStatusText.text = "Đăng nhập tài khoản để xem các phòng đã chơi.";
@@ -723,7 +790,7 @@ namespace ClassroomQuiz.UI
 
         private void ShowRoomHistoryDetails(long roomId)
         {
-            var token = PlayerPrefs.GetString(PhpApiClient.AccountTokenPreferenceKey, string.Empty);
+            var token = ClassroomQuizPreferences.GetString(PhpApiClient.AccountTokenPreferenceKey, string.Empty);
             if (string.IsNullOrWhiteSpace(token)) return;
             _historyDetailsOpen = true;
             SetHistoryListVisible(false);
@@ -819,8 +886,21 @@ namespace ClassroomQuiz.UI
 
         private void ConfirmAvatar()
         {
-            PlayerPrefs.SetString("ClassroomQuiz.Avatar", _pendingAvatar);
-            PlayerPrefs.Save();
+            ClassroomQuizPreferences.SetString("ClassroomQuiz.Avatar", _pendingAvatar);
+            ClassroomQuizPreferences.Save();
+            var token = ClassroomQuizPreferences.GetString(PhpApiClient.AccountTokenPreferenceKey, string.Empty);
+            if (!string.IsNullOrWhiteSpace(token))
+            {
+                StartCoroutine(PhpApiClient.Post(PhpApiClient.ConfiguredUrl,
+                    new ClassroomQuizApiRequest { action = "updateAvatar", avatarKey = _pendingAvatar }, token,
+                    response =>
+                    {
+                        if (response == null || !response.success)
+                        {
+                            _ui.MainStatusText.text = response?.error ?? "Không lưu được avatar vào tài khoản.";
+                        }
+                    }));
+            }
             RefreshWelcome();
             ShowMainMenu();
         }
@@ -875,7 +955,7 @@ namespace ClassroomQuiz.UI
             _ui.StartGameButton.interactable = ClassroomQuizSessionState.IsTeacher && _waitingStudentCount >= 2 && !_waitingRoomStarted;
             if (string.IsNullOrEmpty(_ui.RosterText.text))
             {
-                _ui.RosterText.text = PlayerPrefs.GetString("ClassroomQuiz.DisplayName", "Guest");
+                _ui.RosterText.text = ClassroomQuizPreferences.GetString("ClassroomQuiz.DisplayName", "Guest");
             }
             SetScreen(_ui.WaitingRoomPanel);
         }
@@ -1013,21 +1093,43 @@ namespace ClassroomQuiz.UI
                 return;
             }
 
-            _lessons[index] = edited;
-            if (!_lessonRepository.SaveLessons(_lessons))
+            var token = ClassroomQuizPreferences.GetString(PhpApiClient.AccountTokenPreferenceKey, string.Empty);
+            if (string.IsNullOrWhiteSpace(token))
             {
-                _ui.EditorStatusText.text = "Không lưu được JSON trong persistentDataPath.";
+                _ui.EditorStatusText.text = "Hãy đăng nhập lại để lưu câu hỏi vào database.";
                 _ui.EditorStatusText.color = RuntimeUiFactory.Red;
                 return;
             }
 
-            PopulateLessonDropdown();
-            _ui.LessonDropdown.SetValueWithoutNotify(index);
-            _ui.LessonDropdown.RefreshShownValue();
-            UpdateLessonSummary();
-            _ui.EditorStatusText.text = "Đã lưu vào persistentDataPath/ClassroomQuiz/ClassroomQuizLessons.json.";
-            _ui.EditorStatusText.color = RuntimeUiFactory.Green;
-            SetScreen(_ui.CreateRoomPanel);
+            _ui.QuestionEditorSaveButton.interactable = false;
+            _ui.EditorStatusText.text = "Đang lưu bộ câu hỏi vào database…";
+            StartCoroutine(PhpApiClient.Post(PhpApiClient.ConfiguredUrl, new ClassroomQuizApiRequest
+            {
+                action = "saveLessonQuestions",
+                lessonId = edited.lessonId,
+                title = edited.title,
+                summary = edited.summary,
+                questions = edited.questions
+            }, token, response =>
+            {
+                _ui.QuestionEditorSaveButton.interactable = true;
+                if (response == null || !response.success)
+                {
+                    _ui.EditorStatusText.text = response?.error ?? "Không lưu được câu hỏi vào database.";
+                    _ui.EditorStatusText.color = RuntimeUiFactory.Red;
+                    return;
+                }
+
+                _lessons[index] = edited;
+                _lessonRepository.SaveLessons(_lessons);
+                PopulateLessonDropdown();
+                _ui.LessonDropdown.SetValueWithoutNotify(index);
+                _ui.LessonDropdown.RefreshShownValue();
+                UpdateLessonSummary();
+                _ui.EditorStatusText.text = "Đã lưu bộ câu hỏi vào database; các lần mở game sẽ tải từ đây.";
+                _ui.EditorStatusText.color = RuntimeUiFactory.Green;
+                SetScreen(_ui.CreateRoomPanel);
+            }));
         }
 
         private void SaveSettings()
@@ -1040,11 +1142,11 @@ namespace ClassroomQuiz.UI
                 return;
             }
 
-            PlayerPrefs.SetString("ClassroomQuiz.ServerAddress", address);
-            PlayerPrefs.SetInt("ClassroomQuiz.ServerPort", port);
-            PlayerPrefs.SetFloat("ClassroomQuiz.Volume", _ui.VolumeSlider.value);
+            ClassroomQuizPreferences.SetString("ClassroomQuiz.ServerAddress", address);
+            ClassroomQuizPreferences.SetInt("ClassroomQuiz.ServerPort", port);
+            ClassroomQuizPreferences.SetFloat("ClassroomQuiz.Volume", _ui.VolumeSlider.value);
             AudioListener.volume = _ui.VolumeSlider.value;
-            PlayerPrefs.Save();
+            ClassroomQuizPreferences.Save();
             SetStatus("Đã lưu IP, cổng và âm lượng.", RuntimeUiFactory.Green);
         }
 

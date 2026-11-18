@@ -25,11 +25,14 @@ git clone https://github.com/hieuaxe2006/ClassroomQuiz.git
 - Đảm bảo dùng đúng phiên bản Unity `6000.3.5f1`
 - Unity sẽ tự tạo `Library/`, `Temp/`, v.v.
 
+Sau khi Unity biên dịch xong, chọn **ClassroomQuiz → Generate Editable Canvas UI**. Lệnh này tạo và lưu Canvas uGUI vào các scene Login, Start, GamePlay và EndScene. Bạn có thể chọn các đối tượng trong Hierarchy để sửa TextMeshPro, nút, màu, kích thước và vị trí ngay trong Editor; các scene cũ được sao lưu trước khi tạo.
+
 ### 3. Thiết lập tài khoản và database XAMPP
 
 - Bật **Apache** và **MySQL** trong XAMPP. XAMPP2 trên máy này dùng `D:\webserver` làm `DocumentRoot`.
 - Chạy `install_xampp_api.bat` từ thư mục project để cài API vào `D:\webserver\ClassroomQuizApi`.
 - Mở `http://127.0.0.1/ClassroomQuizApi/api.php`. API tự tạo database `classromquiz` và các bảng khi được gọi lần đầu.
+- API tạo bảng `lesson_questions` và nạp 30 câu hỏi theo 6 bài học mẫu ở lần chạy đầu. Người dùng đã đăng nhập có thể sửa 2–5 câu trong phần chỉnh sửa bài; nội dung được lưu vào bảng này.
 - Tài liệu cấu hình server, API và kết nối LAN nằm trong [Server/README.md](Server/README.md).
 
 ### 4. Chạy Server
@@ -40,6 +43,10 @@ run_server.bat
 ```
 
 Server sẽ lắng nghe kết nối TCP từ game client.
+
+Hướng dẫn chi tiết clone project, trỏ API theo Apache DocumentRoot, build server và chạy thử 3 client nằm trong [HUONG_DAN_CLONE_VA_TEST_3_CLIENT.txt](HUONG_DAN_CLONE_VA_TEST_3_CLIENT.txt).
+
+Sau khi build Windows vào thư mục `Build`, có thể mở ba cửa sổ với profile đăng nhập độc lập bằng `run_3_clients.bat`.
 
 ## 📁 Cấu trúc thư mục
 
@@ -56,7 +63,6 @@ ClassroomQuiz/
 │   ├── Prefabs/                # Prefabs
 │   ├── Resources/              # Resources (load at runtime)
 │   ├── Scenes/                 # Các scene
-│   │   ├── MainMenu.unity      # Menu chính
 │   │   ├── GamePlay.unity      # Gameplay
 │   │   └── EndScene.unity      # Kết thúc
 │   ├── Scripts/                # Code C#

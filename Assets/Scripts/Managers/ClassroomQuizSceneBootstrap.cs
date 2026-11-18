@@ -90,7 +90,10 @@ namespace ClassroomQuiz.Managers
                 {
                     if (canvas != null)
                     {
-                        canvas.gameObject.SetActive(false);
+                        if (canvas.GetComponent<ClassroomQuizAuthoredCanvas>() == null)
+                        {
+                            canvas.gameObject.SetActive(false);
+                        }
                     }
                 }
             }

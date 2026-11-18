@@ -189,7 +189,7 @@ namespace ClassroomQuiz.Network
                 {
                     Type = "Hello",
                     PlayerName = PlayerName,
-                    AuthToken = PlayerPrefs.GetString(PhpApiClient.AccountTokenPreferenceKey, string.Empty),
+                    AuthToken = ClassroomQuizPreferences.GetString(PhpApiClient.AccountTokenPreferenceKey, string.Empty),
                     RequestId = Guid.NewGuid().ToString("N")
                 });
 

@@ -20,7 +20,7 @@ The Unity clients connect to the .NET 8 TCP server on port `7777`. The TCP serve
 3. Open `http://127.0.0.1/ClassroomQuizApi/api.php` in a browser; it should show that the API is ready. On the first API request, PHP creates the `classromquiz` database and its tables automatically. `Server\XamppApi\schema.sql` can also be imported with phpMyAdmin.
 4. On a computer running XAMPP, the login screen's default API URL is `http://127.0.0.1/ClassroomQuizApi/api.php`. On each student computer, enter the teacher computer's LAN IPv4 address instead, for example `http://192.168.1.20/ClassroomQuizApi/api.php`.
 
-The schema contains `accounts` (email, display name, and password hash), `account_sessions`, `rooms`, and `detail_room`. Passwords are hashed with PHP's `password_hash`; the game client sends the resulting session token to the TCP server, never the password. A room run is saved when it ends. Restarting the room runs and saves another result row.
+The schema contains `accounts` (email, display name, avatar key, and password hash), `account_sessions`, `lesson_questions`, `rooms`, and `detail_room`. On the first API request, `lesson_questions_seed.json` adds 30 editable quiz questions across six sample lessons. Passwords are hashed with PHP's `password_hash`; the game client sends the resulting session token to the TCP server, never the password. A room run is saved when it ends. Restarting the room runs and saves another result row.
 
 The API assumes XAMPP's default MySQL account (`root` with no password). Set `CLASSROOMQUIZ_DB_HOST`, `CLASSROOMQUIZ_DB_USER`, and `CLASSROOMQUIZ_DB_PASSWORD` in Apache's environment if your MySQL credentials differ.
 
@@ -41,7 +41,7 @@ The server binds to `0.0.0.0:7777`. You can override the address and port with:
 run_server.bat --ip 0.0.0.0 --port 7777
 ```
 
-You can also set `CLASSROOM_QUIZ_BIND_IP`, `CLASSROOM_QUIZ_PORT`, `CLASSROOM_QUIZ_MAX_STUDENTS`, and `CLASSROOM_QUIZ_DB_API`. The student limit defaults to 40 and does not include the teacher. The default API endpoint is `http://127.0.0.1/ClassroomQuizApi/api.php`.
+You can also set `CLASSROOM_QUIZ_BIND_IP`, `CLASSROOM_QUIZ_PORT`, `CLASSROOM_QUIZ_MAX_STUDENTS`, and `CLASSROOM_QUIZ_DB_API`. The student limit defaults to 16 (the 4×4 classroom seats) and does not include the teacher. The default API endpoint is `http://127.0.0.1/ClassroomQuizApi/api.php`.
 
 The server and PHP API share `CLASSROOM_QUIZ_SERVICE_KEY` to authorize saving room records. They use the same development default, `ClassroomQuiz-local-change-this-key`; change it in both the server process environment and Apache's environment before exposing the API outside a trusted local network.
 
@@ -59,6 +59,7 @@ The server and PHP API share `CLASSROOM_QUIZ_SERVICE_KEY` to authorize saving ro
 
 - The server requires one teacher and at least two students before starting. It validates room options and question sets, generates unique room codes without O/0/I/1, accepts one answer per student per question, and uses a shared wall-clock timer.
 - A lesson is one ordered sequence of 2–5 questions. Correct answers earn 1,000 base points plus up to 1,000 speed points; incorrect answers earn no points. After answering, the student sees an explanation until the shared timer ends.
+- At question end, the teacher's live panel and each classroom seat show that question's points for three seconds before the next question starts.
 - The teacher sees the live full-class leaderboard. At the ending screen, each student sees their own rank and the top student; only the teacher sees the full ranking. Only the teacher can restart the room, and each completed run is stored as another room history row.
 - The room history menu lists the rooms an account hosted or joined. Opening a room shows its ranking, correct and incorrect counts, response time, and score. The API only returns full details to that room's teacher and returns the top student plus the requesting student to other participants.
 - Study materials are a separate, untimed library with worked examples and practice prompts. They do not use the room question set.

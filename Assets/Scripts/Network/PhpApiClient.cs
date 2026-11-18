@@ -1,6 +1,9 @@
 using System;
 using System.Collections;
+using System.Collections.Generic;
+using System.Linq;
 using System.Text;
+using ClassroomQuiz.Data;
 using UnityEngine;
 using UnityEngine.Networking;
 
@@ -12,9 +15,14 @@ namespace ClassroomQuiz.Network
         public string action = string.Empty;
         public string email = string.Empty;
         public string displayName = string.Empty;
+        public string avatarKey = string.Empty;
+        public string title = string.Empty;
+        public string summary = string.Empty;
         public string password = string.Empty;
         public string token = string.Empty;
         public long roomId;
+        public int lessonId;
+        public List<LessonQuestionData> questions = new List<LessonQuestionData>();
     }
 
     [Serializable]
@@ -25,8 +33,44 @@ namespace ClassroomQuiz.Network
         public long accountId;
         public string email = string.Empty;
         public string displayName = string.Empty;
+        public string avatarKey = "A";
         public string token = string.Empty;
         [NonSerialized] public string rawJson = string.Empty;
+    }
+
+    public static class ClassroomQuizPreferences
+    {
+        private static readonly string Profile = ReadProfileArgument();
+
+        public static string GetString(string key, string defaultValue = "") => PlayerPrefs.GetString(Key(key), defaultValue);
+        public static int GetInt(string key, int defaultValue = 0) => PlayerPrefs.GetInt(Key(key), defaultValue);
+        public static float GetFloat(string key, float defaultValue = 0f) => PlayerPrefs.GetFloat(Key(key), defaultValue);
+        public static void SetString(string key, string value) => PlayerPrefs.SetString(Key(key), value);
+        public static void SetInt(string key, int value) => PlayerPrefs.SetInt(Key(key), value);
+        public static void SetFloat(string key, float value) => PlayerPrefs.SetFloat(Key(key), value);
+        public static void Save() => PlayerPrefs.Save();
+
+        private static string Key(string key)
+        {
+            return string.IsNullOrEmpty(Profile) ? key : $"ClassroomQuiz.Profile.{Profile}.{key}";
+        }
+
+        private static string ReadProfileArgument()
+        {
+            const string prefix = "--cq-profile=";
+            var argument = Environment.GetCommandLineArgs()
+                .FirstOrDefault(value => value.StartsWith(prefix, StringComparison.OrdinalIgnoreCase));
+            if (argument == null)
+            {
+                return string.Empty;
+            }
+
+            var profile = new string(argument.Substring(prefix.Length)
+                .Where(character => char.IsLetterOrDigit(character) || character == '-' || character == '_')
+                .Take(32)
+                .ToArray());
+            return profile.ToLowerInvariant();
+        }
     }
 
     public static class PhpApiClient
@@ -37,7 +81,7 @@ namespace ClassroomQuiz.Network
         public const string AccountTokenPreferenceKey = "ClassroomQuiz.AccountToken";
         public const string AccountEmailPreferenceKey = "ClassroomQuiz.AccountEmail";
 
-        public static string ConfiguredUrl => PlayerPrefs.GetString(ApiUrlPreferenceKey, DefaultUrl).Trim();
+        public static string ConfiguredUrl => ClassroomQuizPreferences.GetString(ApiUrlPreferenceKey, DefaultUrl).Trim();
 
         public static IEnumerator Post(string apiUrl, ClassroomQuizApiRequest body, string bearerToken, Action<ClassroomQuizApiResponse> completed)
         {

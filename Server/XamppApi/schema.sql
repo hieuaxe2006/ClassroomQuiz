@@ -8,11 +8,31 @@ CREATE TABLE IF NOT EXISTS accounts (
   account_id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
   email VARCHAR(254) NOT NULL,
   display_name VARCHAR(48) NOT NULL,
+  avatar_key CHAR(1) NOT NULL DEFAULT 'A',
   password_hash VARCHAR(255) NOT NULL,
   created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
   last_login_at DATETIME NULL,
   PRIMARY KEY (account_id),
   UNIQUE KEY uq_accounts_email (email)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE IF NOT EXISTS lesson_questions (
+  question_id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
+  lesson_id SMALLINT UNSIGNED NOT NULL,
+  lesson_title VARCHAR(160) NOT NULL,
+  lesson_summary VARCHAR(500) NOT NULL DEFAULT '',
+  sequence_index TINYINT UNSIGNED NOT NULL,
+  prompt TEXT NOT NULL,
+  options_json JSON NOT NULL,
+  correct_index TINYINT UNSIGNED NOT NULL,
+  explanation TEXT NOT NULL,
+  difficulty ENUM('Basic', 'Practice', 'Advanced') NOT NULL DEFAULT 'Practice',
+  is_active TINYINT(1) NOT NULL DEFAULT 1,
+  created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  PRIMARY KEY (question_id),
+  UNIQUE KEY uq_lesson_questions_order (lesson_id, sequence_index),
+  KEY ix_lesson_questions_active (lesson_id, is_active)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 CREATE TABLE IF NOT EXISTS account_sessions (

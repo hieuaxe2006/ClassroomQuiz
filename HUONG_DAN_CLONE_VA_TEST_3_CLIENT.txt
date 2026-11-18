@@ -1,0 +1,106 @@
+HƯỚNG DẪN CLONE CLASSROOMQUIZ VÀ CHẠY THỬ 3 CLIENT
+===================================================
+
+Mô hình thử trên một máy:
+- 1 client giáo viên tạo phòng và xem bảng xếp hạng.
+- 2 client học sinh nhập mã phòng và làm quiz.
+- XAMPP chạy Apache + MySQL; TCP server chạy cổng 7777.
+
+YÊU CẦU
+-------
+- Unity 6000.3.5f1, có Windows Build Support.
+- Git và Git LFS.
+- .NET SDK 8.
+- XAMPP. Trên máy hiện tại, thư mục cài XAMPP là C:\XAMPP2.
+
+1. CLONE PROJECT
+----------------
+Mở PowerShell hoặc Command Prompt tại thư mục muốn lưu project:
+
+  git lfs install
+  git clone https://github.com/hieuaxe2006/ClassroomQuiz.git
+  cd ClassroomQuiz
+  git lfs pull
+
+Mở project bằng Unity Hub, chọn đúng Unity 6000.3.5f1 và đợi Unity import/compile xong.
+
+2. CÀI API VÀO ĐÚNG THƯ MỤC APACHE
+----------------------------------
+Thư mục cài XAMPP và Apache DocumentRoot là hai đường dẫn khác nhau.
+
+- XAMPP trên máy hiện tại nằm ở: C:\XAMPP2
+- Mở C:\XAMPP2\apache\conf\httpd.conf, tìm dòng DocumentRoot.
+- API phải được cài vào một thư mục con của DocumentRoot thì URL /ClassroomQuizApi/api.php mới trỏ đúng.
+
+Máy phát triển hiện tại dùng DocumentRoot D:\webserver, nên chạy:
+
+  install_xampp_api.bat "D:\webserver\ClassroomQuizApi"
+
+Nếu máy clone dùng DocumentRoot mặc định C:\XAMPP2\htdocs, chạy:
+
+  install_xampp_api.bat "C:\XAMPP2\htdocs\ClassroomQuizApi"
+
+Hãy dùng đúng đường dẫn DocumentRoot trong httpd.conf, không đoán chỉ từ thư mục cài XAMPP. Nếu mở API mà vẫn thấy website cũ, thư mục đích không nằm trong DocumentRoot Apache đang dùng.
+
+3. CHẠY XAMPP VÀ KHỞI TẠO DATABASE
+----------------------------------
+1) Mở C:\XAMPP2\xampp-control.exe.
+2) Bấm Start cho Apache và MySQL.
+3) Mở trên trình duyệt:
+
+  http://127.0.0.1/ClassroomQuizApi/api.php
+
+API phải trả JSON báo đã sẵn sàng. Request đầu tiên tự tạo database classromquiz và các bảng accounts, account_sessions, lesson_questions, rooms, detail_room. Không cần tạo database hoặc bảng thủ công trong phpMyAdmin.
+
+API nạp 30 câu hỏi mẫu thuộc 6 bài khi bảng lesson_questions còn trống.
+
+4. BUILD VÀ CHẠY TCP SERVER
+---------------------------
+Mở một cửa sổ Command Prompt tại thư mục gốc ClassroomQuiz:
+
+  build_server.bat
+
+Đợi thông báo Build succeeded. Sau đó mở một cửa sổ Command Prompt riêng và chạy:
+
+  run_server.bat
+
+Giữ cửa sổ server mở trong lúc chơi. Server lắng nghe cổng 7777 và mặc định gọi API tại:
+
+  http://127.0.0.1/ClassroomQuizApi/api.php
+
+5. BUILD FILE EXE TRONG UNITY
+-----------------------------
+Trong Unity Editor:
+1) Mở File > Build Profiles (hoặc Build Settings ở các phiên bản Unity cũ).
+2) Chọn Windows và đảm bảo các scene LoginScene, StartScene, GamePlay, EndScene có trong danh sách build.
+3) Bấm Build, chọn thư mục ClassroomQuiz\Build.
+4) Unity tạo file ClassroomQuiz.exe trong thư mục đó.
+
+Project đã đặt cửa sổ mặc định 1280x720 và cho phép đổi kích thước. Thanh tiêu đề Windows sẽ có minimize, maximize/restore và close. Hãy build lại EXE sau khi cập nhật Player Settings; EXE cũ không tự thay đổi.
+
+6. CHẠY 3 CLIENT ĐỂ TEST GAME
+-----------------------------
+Các client chạy cùng một tài khoản Windows cần profile riêng để lưu token đăng nhập tách biệt. Sau khi build vào ClassroomQuiz\Build, mở Command Prompt tại thư mục ClassroomQuiz và chạy:
+
+  start "" "Build\ClassroomQuiz.exe" --cq-profile=teacher
+  start "" "Build\ClassroomQuiz.exe" --cq-profile=student1
+  start "" "Build\ClassroomQuiz.exe" --cq-profile=student2
+
+Có thể chạy nhanh ba cửa sổ bằng file run_3_clients.bat trong thư mục project.
+
+- Client teacher: đăng ký/đăng nhập tài khoản giáo viên, tạo phòng và giữ mã phòng.
+- Client student1 và student2: đăng ký/đăng nhập hai tài khoản khác nhau, nhập mã phòng.
+- Khi đã có 2 học sinh, giáo viên bấm Bắt đầu.
+- Học sinh chọn đáp án; giáo viên theo dõi bảng xếp hạng trực tiếp.
+
+Mỗi profile lưu riêng tài khoản, API URL, địa chỉ server, avatar và âm lượng. Các lần mở sau có thể dùng lại đúng các lệnh trên.
+
+Trên cùng máy, để địa chỉ TCP và API là 127.0.0.1. Nếu client ở máy khác, thay 127.0.0.1 bằng IPv4 của máy chạy server và mở firewall cho TCP 7777 cùng HTTP Apache.
+
+KẾT THÚC VÀ LỖI THƯỜNG GẶP
+--------------------------
+- Đóng ba cửa sổ game; tại cửa sổ server bấm Ctrl+C.
+- Dừng Apache và MySQL trong XAMPP Control Panel nếu đã test xong.
+- API hiện website cũ thay vì JSON: kiểm tra DocumentRoot trong httpd.conf và cài lại API vào đúng thư mục.
+- Client không kết nối được: kiểm tra cửa sổ run_server.bat, cổng 7777 và địa chỉ server trong Settings.
+- EXE vẫn fullscreen không có thanh tiêu đề: build EXE mới từ Unity sau khi Player Settings đã cập nhật.

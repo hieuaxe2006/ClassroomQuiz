@@ -9,7 +9,6 @@ public class EndSceneUIManager : MonoBehaviour
     public Button btnReplay;
     public Button btnMainMenu;
     public string gameplaySceneName = "GamePlay";
-    public string mainMenuSceneName = "MainMenu";
     private void Start()
     {
         btnReplay.onClick.AddListener(OnClickReplay);
@@ -60,6 +59,6 @@ public class EndSceneUIManager : MonoBehaviour
         {
             NetworkManager.Singleton.Shutdown();
         }
-        UnityEngine.SceneManagement.SceneManager.LoadScene(mainMenuSceneName);
+        UnityEngine.SceneManagement.SceneManager.LoadScene("StartScene");
     }
 }
