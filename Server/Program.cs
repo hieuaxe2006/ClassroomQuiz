@@ -902,8 +902,8 @@ internal sealed class TcpGameServer
             correct = isCorrect,
             scoreAwarded,
             totalScore,
-            explanation = question.Explanation,
-            correctIndex = question.CorrectIndex
+            explanation = room.Mode == "Study" ? question.Explanation : string.Empty,
+            correctIndex = room.Mode == "Study" ? question.CorrectIndex : -1
         });
         await SendAsync(session, new NetworkMessage
         {
@@ -951,8 +951,11 @@ internal sealed class TcpGameServer
                     rank = i + 1,
                     playerId = students[i].PlayerId,
                     displayName = students[i].DisplayName,
+                    avatarKey = students[i].AvatarKey,
                     score = students[i].Score,
                     correctCount = students[i].CorrectCount,
+                    incorrectCount = Math.Max(0, students[i].SubmittedCount - students[i].CorrectCount),
+                    unansweredCount = Math.Max(0, room.Questions.Count - students[i].SubmittedCount),
                     totalQuestions = room.Questions.Count,
                     totalAnswerTimeMilliseconds = students[i].TotalAnswerTimeMilliseconds
                 });
@@ -1046,7 +1049,8 @@ internal sealed class TcpGameServer
                 winnerPlayerId = students.Length > 0 ? students[0].PlayerId : string.Empty,
                 winnerName = students.Length > 0 ? students[0].DisplayName : "Chưa có học sinh",
                 winnerAvatarKey = students.Length > 0 ? students[0].AvatarKey : "A",
-                winnerScore = students.Length > 0 ? students[0].Score : 0
+                winnerScore = students.Length > 0 ? students[0].Score : 0,
+                students = ranking
             })
         }).ConfigureAwait(false);
     }

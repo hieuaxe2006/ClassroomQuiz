@@ -105,9 +105,13 @@ namespace ClassroomQuiz.Gameplay
         private sealed class LeaderEntry
         {
             public int rank;
+            public string playerId;
             public string displayName;
+            public string avatarKey;
             public int score;
             public int correctCount;
+            public int incorrectCount;
+            public int unansweredCount;
             public int totalQuestions;
             public long totalAnswerTimeMilliseconds;
         }
@@ -363,7 +367,7 @@ namespace ClassroomQuiz.Gameplay
             if (message.Success != true || data == null || !data.accepted)
             {
                 _answeredThisQuestion = false;
-                SetAnswerButtonsInteractable(true);
+                SetAnswerButtonsInteractable(HasQuestionTimeRemaining());
                 _ui.FeedbackPanel.SetActive(false);
                 for (var i = 0; i < _ui.Answers.Length; i++) _ui.Answers[i].colors = DefaultAnswerColors(i);
                 _ui.Status.text = message.Error ?? message.Message ?? "Server chưa nhận đáp án. Bạn có thể thử lại.";
@@ -376,15 +380,22 @@ namespace ClassroomQuiz.Gameplay
             _ui.FeedbackTitle.text = data.correct
                 ? $"CHÍNH XÁC!  +{data.scoreAwarded} ĐIỂM"
                 : "CHƯA CHÍNH XÁC  ·  +0 ĐIỂM";
-            var correctAnswer = data.correctIndex >= 0 && data.correctIndex < _currentOptions.Length
-                ? $"{(char)('A' + data.correctIndex)}. {_currentOptions[data.correctIndex]}"
+            var correctIndex = _mode == "Study" ? data.correctIndex : -1;
+            var correctAnswer = correctIndex >= 0 && correctIndex < _currentOptions.Length
+                ? $"{(char)('A' + correctIndex)}. {_currentOptions[correctIndex]}"
                 : string.Empty;
+            var explanation = _mode == "Study" ? data.explanation : string.Empty;
             _ui.FeedbackBody.text = string.IsNullOrWhiteSpace(correctAnswer)
-                ? data.explanation ?? string.Empty
-                : $"Đáp án đúng: {correctAnswer}\n{data.explanation}";
+                ? explanation ?? string.Empty
+                : $"Đáp án đúng: {correctAnswer}\n{explanation}";
             _ui.FeedbackPanel.SetActive(true);
-            _ui.Status.text = "Phần hướng dẫn sẽ ở đây đến hết thời gian của câu hỏi.";
-            ShowAnswerReview(_selectedAnswerIndex, data.correctIndex);
+            _ui.Status.text = _mode == "Study"
+                ? "Phần hướng dẫn sẽ ở đây đến hết thời gian của câu hỏi."
+                : "Đáp án đã được ghi nhận. Bảng điểm cập nhật sau mỗi lượt trả lời.";
+            if (_mode == "Study")
+            {
+                ShowAnswerReview(_selectedAnswerIndex, correctIndex);
+            }
         }
 
         private void EndQuestion(NetworkMessage message)
@@ -509,6 +520,30 @@ namespace ClassroomQuiz.Gameplay
                 }
             }
 
+            try
+            {
+                var finalResults = JsonUtility.FromJson<LeaderboardData>(message.Data);
+                var standings = finalResults?.students ?? Array.Empty<LeaderEntry>();
+                ClassroomQuizSessionState.LastFinalStandings = Array.ConvertAll(standings, student => new ClassroomQuizStandingSnapshot
+                {
+                    rank = student.rank,
+                    playerId = student.playerId ?? string.Empty,
+                    displayName = student.displayName ?? "Học sinh",
+                    avatarKey = string.IsNullOrWhiteSpace(student.avatarKey) ? "A" : student.avatarKey,
+                    score = student.score,
+                    correctCount = student.correctCount,
+                    incorrectCount = student.incorrectCount,
+                    unansweredCount = student.unansweredCount,
+                    totalQuestions = student.totalQuestions,
+                    totalAnswerTimeMilliseconds = student.totalAnswerTimeMilliseconds
+                });
+            }
+            catch (Exception exception)
+            {
+                ClassroomQuizSessionState.LastFinalStandings = Array.Empty<ClassroomQuizStandingSnapshot>();
+                Debug.LogWarning($"Final leaderboard data was invalid: {exception.Message}");
+            }
+
             _ui.CountdownOverlay.SetActive(false);
             _ui.WinnerAvatar.text = string.IsNullOrWhiteSpace(winner?.winnerAvatarKey) ? "A" : winner.winnerAvatarKey;
             _ui.WinnerName.text = string.IsNullOrWhiteSpace(winner?.winnerName) ? "Chưa có học sinh" : winner.winnerName;
@@ -547,9 +582,20 @@ namespace ClassroomQuiz.Gameplay
             catch (Exception exception)
             {
                 _answeredThisQuestion = false;
-                SetAnswerButtonsInteractable(true);
+                SetAnswerButtonsInteractable(HasQuestionTimeRemaining());
                 _ui.Status.text = exception.Message;
             }
+        }
+
+        private bool HasQuestionTimeRemaining()
+        {
+            if (_questionIndex < 0 || _questionEndsAtUnixMs <= 0)
+            {
+                return false;
+            }
+
+            var serverNow = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds() + _serverClockOffsetMs;
+            return serverNow < _questionEndsAtUnixMs;
         }
 
         private void SaveStudentResult(NetworkMessage message)

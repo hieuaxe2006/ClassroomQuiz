@@ -8,17 +8,18 @@ namespace ClassroomQuiz.UI
 {
     internal static class RuntimeUiFactory
     {
-        public static readonly Color Background = Hex("F3F7FB");
-        public static readonly Color Surface = Color.white;
-        public static readonly Color Navy = Hex("18324D");
-        public static readonly Color Muted = Hex("63788F");
-        public static readonly Color Blue = Hex("1678C8");
-        public static readonly Color Cyan = Hex("17A6B6");
-        public static readonly Color Purple = Hex("7655BD");
-        public static readonly Color Green = Hex("2A9D6F");
-        public static readonly Color Orange = Hex("E38B38");
-        public static readonly Color Red = Hex("C84C51");
-        public static readonly Color Border = Hex("D9E3EC");
+        public static readonly Color Background = ClassroomQuizDesignSystem.Background;
+        public static readonly Color Surface = ClassroomQuizDesignSystem.Surface;
+        public static readonly Color Navy = ClassroomQuizDesignSystem.BoardGreen;
+        public static readonly Color Muted = ClassroomQuizDesignSystem.Muted;
+        public static readonly Color Blue = ClassroomQuizDesignSystem.Blue;
+        public static readonly Color Cyan = ClassroomQuizDesignSystem.Cyan;
+        public static readonly Color Purple = ClassroomQuizDesignSystem.Purple;
+        public static readonly Color Green = ClassroomQuizDesignSystem.Green;
+        public static readonly Color Orange = ClassroomQuizDesignSystem.Orange;
+        public static readonly Color Red = ClassroomQuizDesignSystem.Red;
+        public static readonly Color Border = ClassroomQuizDesignSystem.Border;
+        public static readonly Color Gold = ClassroomQuizDesignSystem.BadgeGold;
 
         private static TMP_FontAsset _font;
 
@@ -133,20 +134,52 @@ namespace ClassroomQuiz.UI
         {
             var rect = Rect(parent, name, size, position, anchor ?? new Vector2(0.5f, 0.5f));
             var image = rect.gameObject.AddComponent<Image>();
-            image.color = color;
+            
+            var spriteName = color == Red ? "ClassroomButtonDanger"
+                : (color == Green || color == Navy) ? "ChalkButton"
+                : color == Blue ? "ClassroomButtonBlue"
+                : color == Purple ? "ClassroomButtonPurple"
+                : color == Cyan ? "ClassroomButtonTeal"
+                : color == Orange ? "ClassroomButtonWood"
+                : "ClassroomButton";
+            var sprite = Resources.Load<Sprite>($"ClassroomQuiz/Sprites/{spriteName}")
+                ?? Resources.Load<Sprite>("ClassroomQuiz/Sprites/ClassroomButton");
+
+            if (sprite != null)
+            {
+                image.sprite = sprite;
+                image.type = Image.Type.Sliced;
+                image.color = Color.white;
+            }
+            else
+            {
+                image.color = color;
+            }
+
             var button = rect.gameObject.AddComponent<Button>();
             button.targetGraphic = image;
             button.transition = Selectable.Transition.ColorTint;
-            button.colors = new ColorBlock
-            {
-                normalColor = color,
-                highlightedColor = Color.Lerp(color, Color.white, 0.12f),
-                pressedColor = Color.Lerp(color, Color.black, 0.13f),
-                selectedColor = color,
-                disabledColor = new Color(color.r, color.g, color.b, 0.45f),
-                colorMultiplier = 1,
-                fadeDuration = 0.12f
-            };
+            button.colors = sprite != null
+                ? new ColorBlock
+                {
+                    normalColor = Color.white,
+                    highlightedColor = new Color(1f, 1f, 0.88f, 1f),
+                    pressedColor = new Color(0.85f, 0.85f, 0.85f, 1f),
+                    selectedColor = Color.white,
+                    disabledColor = new Color(1f, 1f, 1f, 0.45f),
+                    colorMultiplier = 1,
+                    fadeDuration = 0.12f
+                }
+                : new ColorBlock
+                {
+                    normalColor = color,
+                    highlightedColor = Color.Lerp(color, Color.white, 0.12f),
+                    pressedColor = Color.Lerp(color, Color.black, 0.13f),
+                    selectedColor = color,
+                    disabledColor = new Color(color.r, color.g, color.b, 0.45f),
+                    colorMultiplier = 1,
+                    fadeDuration = 0.12f
+                };
             button.navigation = new Navigation { mode = Navigation.Mode.Automatic };
             if (onClick != null)
             {
@@ -185,7 +218,7 @@ namespace ClassroomQuiz.UI
             input.contentType = contentType;
             input.lineType = multiline ? TMP_InputField.LineType.MultiLineNewline : TMP_InputField.LineType.SingleLine;
             input.richText = false;
-            input.characterLimit = contentType == TMP_InputField.ContentType.Password ? 64 : 160;
+            input.characterLimit = contentType == TMP_InputField.ContentType.Password ? 128 : 160;
             return input;
         }
 

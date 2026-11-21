@@ -74,6 +74,12 @@ namespace ClassroomQuiz.UI
             classroom.rectTransform.anchorMax = new Vector2(0.5f, 1);
             classroom.rectTransform.offsetMin = Vector2.zero;
             classroom.rectTransform.offsetMax = Vector2.zero;
+            var bgClassroom = Resources.Load<Sprite>("ClassroomQuiz/Sprites/BackgroundGameplayClassroom");
+            if (bgClassroom != null)
+            {
+                classroom.sprite = bgClassroom;
+                classroom.color = Color.white;
+            }
             BuildClassroom(classroom.transform, refs);
 
             var gameHalf = RuntimeUiFactory.Panel(background.transform, "Question Half", Vector2.zero, Vector2.zero, RuntimeUiFactory.Hex("F3F7FB"));
@@ -81,6 +87,12 @@ namespace ClassroomQuiz.UI
             gameHalf.rectTransform.anchorMax = Vector2.one;
             gameHalf.rectTransform.offsetMin = Vector2.zero;
             gameHalf.rectTransform.offsetMax = Vector2.zero;
+            var bgQuiz = Resources.Load<Sprite>("ClassroomQuiz/Sprites/BackgroundGameplayQuiz");
+            if (bgQuiz != null)
+            {
+                gameHalf.sprite = bgQuiz;
+                gameHalf.color = Color.white;
+            }
             BuildStudentQuestionUi(gameHalf.transform, refs);
             BuildTeacherDashboard(gameHalf.transform, refs);
 
@@ -91,22 +103,29 @@ namespace ClassroomQuiz.UI
 
         private static void BuildClassroom(Transform parent, GameplayUiRefs refs)
         {
-            var rearWall = RuntimeUiFactory.Panel(parent, "Rear Wall", new Vector2(930, 470), new Vector2(0, 300), RuntimeUiFactory.Hex("D9EFF6"));
+            var hasIllustratedBg = parent != null && parent.GetComponent<Image>() != null && parent.GetComponent<Image>().sprite != null;
+
+            var rearWall = RuntimeUiFactory.Panel(parent, "Rear Wall", new Vector2(930, 470), new Vector2(0, 300), hasIllustratedBg ? Color.clear : RuntimeUiFactory.Hex("D9EFF6"));
             rearWall.raycastTarget = false;
-            RuntimeUiFactory.Panel(parent, "Floor", new Vector2(960, 400), new Vector2(0, -345), RuntimeUiFactory.Hex("B8DFF0")).raycastTarget = false;
-            RuntimeUiFactory.Panel(parent, "Front Board Frame", new Vector2(500, 104), new Vector2(0, 425), RuntimeUiFactory.Hex("A66B42")).raycastTarget = false;
-            RuntimeUiFactory.Panel(parent, "Classroom Board", new Vector2(470, 78), new Vector2(0, 425), RuntimeUiFactory.Hex("248D69")).raycastTarget = false;
-            RuntimeUiFactory.Label(parent, "Board Title", "LỚP HỌC TOÁN", new Vector2(420, 42), new Vector2(0, 425), 25, Color.white, TextAlignmentOptions.Center, true);
-            RuntimeUiFactory.Panel(parent, "Left Window", new Vector2(120, 170), new Vector2(-390, 402), RuntimeUiFactory.Hex("A8DBF1")).raycastTarget = false;
-            RuntimeUiFactory.Panel(parent, "Right Window", new Vector2(120, 170), new Vector2(390, 402), RuntimeUiFactory.Hex("A8DBF1")).raycastTarget = false;
+            var floor = RuntimeUiFactory.Panel(parent, "Floor", new Vector2(960, 400), new Vector2(0, -345), hasIllustratedBg ? Color.clear : RuntimeUiFactory.Hex("B8DFF0"));
+            floor.raycastTarget = false;
+            var frontBoardFrame = RuntimeUiFactory.Panel(parent, "Front Board Frame", new Vector2(500, 104), new Vector2(0, 425), hasIllustratedBg ? Color.clear : RuntimeUiFactory.Hex("A66B42"));
+            frontBoardFrame.raycastTarget = false;
+            var classroomBoard = RuntimeUiFactory.Panel(parent, "Classroom Board", new Vector2(470, 78), new Vector2(0, 425), hasIllustratedBg ? Color.clear : RuntimeUiFactory.Hex("248D69"));
+            classroomBoard.raycastTarget = false;
+            var boardTitle = RuntimeUiFactory.Label(parent, "Board Title", "LỚP HỌC TOÁN", new Vector2(420, 42), new Vector2(0, 425), 25, hasIllustratedBg ? Color.clear : Color.white, TextAlignmentOptions.Center, true);
+            var leftWindow = RuntimeUiFactory.Panel(parent, "Left Window", new Vector2(120, 170), new Vector2(-390, 402), hasIllustratedBg ? Color.clear : RuntimeUiFactory.Hex("A8DBF1"));
+            leftWindow.raycastTarget = false;
+            var rightWindow = RuntimeUiFactory.Panel(parent, "Right Window", new Vector2(120, 170), new Vector2(390, 402), hasIllustratedBg ? Color.clear : RuntimeUiFactory.Hex("A8DBF1"));
+            rightWindow.raycastTarget = false;
 
             RuntimeUiFactory.Label(parent, "Classroom Room Label", "PHÒNG HỌC  ·  16 CHỖ", new Vector2(850, 40), new Vector2(0, 515), 22, RuntimeUiFactory.Navy, TextAlignmentOptions.Center, true);
 
-            var teacherDesk = RuntimeUiFactory.Panel(parent, "Teacher Desk", new Vector2(272, 82), new Vector2(0, 313), RuntimeUiFactory.Hex("B97D4C"));
+            var teacherDesk = RuntimeUiFactory.Panel(parent, "Teacher Desk", new Vector2(272, 82), new Vector2(0, 313), hasIllustratedBg ? Color.clear : RuntimeUiFactory.Hex("B97D4C"));
             teacherDesk.raycastTarget = false;
             refs.TeacherAvatar = RuntimeUiFactory.Label(parent, "Teacher Avatar", "A", new Vector2(68, 68), new Vector2(-64, 328), 36, RuntimeUiFactory.Blue, TextAlignmentOptions.Center, true);
             refs.TeacherName = RuntimeUiFactory.Label(parent, "Teacher Name", "Giáo viên", new Vector2(190, 36), new Vector2(66, 328), 17, Color.white, TextAlignmentOptions.Center, true);
-            RuntimeUiFactory.Label(parent, "Teacher Desk Caption", "BÀN GIÁO VIÊN", new Vector2(260, 30), new Vector2(0, 257), 15, RuntimeUiFactory.Navy, TextAlignmentOptions.Center, true);
+            RuntimeUiFactory.Label(parent, "Teacher Desk Caption", "BÀN GIÁO VIÊN", new Vector2(260, 30), new Vector2(0, 257), 15, hasIllustratedBg ? Color.clear : RuntimeUiFactory.Navy, TextAlignmentOptions.Center, true);
 
             refs.StudentSeats = new ClassroomSeatUiRefs[16];
             for (var index = 0; index < refs.StudentSeats.Length; index++)

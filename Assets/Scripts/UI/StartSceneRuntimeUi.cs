@@ -157,6 +157,13 @@ namespace ClassroomQuiz.UI
             image.rectTransform.anchorMax = Vector2.one;
             image.rectTransform.offsetMin = Vector2.zero;
             image.rectTransform.offsetMax = Vector2.zero;
+            var bgSprite = Resources.Load<Sprite>("ClassroomQuiz/Sprites/BackgroundLobby");
+            if (bgSprite != null)
+            {
+                image.sprite = bgSprite;
+                image.color = Color.white;
+                image.type = Image.Type.Simple;
+            }
             return image.gameObject;
         }
 
@@ -164,6 +171,13 @@ namespace ClassroomQuiz.UI
         {
             var image = RuntimeUiFactory.Panel(parent, name, size, position, RuntimeUiFactory.Surface);
             image.raycastTarget = true;
+            var board = Resources.Load<Sprite>("ClassroomQuiz/Sprites/BoardFrame");
+            if (board != null)
+            {
+                image.sprite = board;
+                image.color = Color.white;
+                image.type = Image.Type.Sliced;
+            }
             return image;
         }
 
@@ -175,11 +189,11 @@ namespace ClassroomQuiz.UI
             RuntimeUiFactory.Label(refs.MainPanel.transform, "Title", "Lớp học của bạn, cùng một nhịp", new Vector2(800, 74), new Vector2(0, 295), 42, RuntimeUiFactory.Navy, TextAlignmentOptions.Center, true);
             RuntimeUiFactory.Label(refs.MainPanel.transform, "Subtitle", "Học tập tương tác qua TCP trong mạng LAN", new Vector2(780, 46), new Vector2(0, 244), 22, RuntimeUiFactory.Muted, TextAlignmentOptions.Center);
             refs.WelcomeText = RuntimeUiFactory.Label(refs.MainPanel.transform, "Welcome", "Xin chào Guest", new Vector2(760, 44), new Vector2(0, 192), 22, RuntimeUiFactory.Navy, TextAlignmentOptions.Center, true);
-            refs.PlayButton = RuntimeUiFactory.Button(refs.MainPanel.transform, "Play", "Chơi / Kết nối", new Vector2(660, 62), new Vector2(0, 142), RuntimeUiFactory.Blue, null);
+            refs.PlayButton = RuntimeUiFactory.Button(refs.MainPanel.transform, "Play", "Chơi / Kết nối", new Vector2(660, 62), new Vector2(0, 142), RuntimeUiFactory.Gold, null);
             refs.StudyButton = RuntimeUiFactory.Button(refs.MainPanel.transform, "Study", "Học tập và ôn luyện", new Vector2(660, 62), new Vector2(0, 66), RuntimeUiFactory.Cyan, null);
-            refs.CharacterButton = RuntimeUiFactory.Button(refs.MainPanel.transform, "Character", "Chọn nhân vật", new Vector2(660, 62), new Vector2(0, -10), RuntimeUiFactory.Purple, null);
+            refs.CharacterButton = RuntimeUiFactory.Button(refs.MainPanel.transform, "Character", "Chọn nhân vật", new Vector2(660, 62), new Vector2(0, -10), RuntimeUiFactory.Blue, null);
             refs.LeaderboardButton = RuntimeUiFactory.Button(refs.MainPanel.transform, "Played Rooms", "Phòng đã chơi", new Vector2(660, 62), new Vector2(0, -86), RuntimeUiFactory.Purple, null);
-            refs.SettingsButton = RuntimeUiFactory.Button(refs.MainPanel.transform, "Settings", "Cài đặt máy chủ", new Vector2(660, 62), new Vector2(0, -162), RuntimeUiFactory.Navy, null);
+            refs.SettingsButton = RuntimeUiFactory.Button(refs.MainPanel.transform, "Settings", "Cài đặt máy chủ", new Vector2(660, 62), new Vector2(0, -162), RuntimeUiFactory.Orange, null);
             refs.ExitButton = RuntimeUiFactory.Button(refs.MainPanel.transform, "Exit", "Thoát", new Vector2(660, 62), new Vector2(0, -238), RuntimeUiFactory.Red, null);
             refs.MainStatusText = RuntimeUiFactory.Label(refs.MainPanel.transform, "Status", "", new Vector2(800, 54), new Vector2(0, -350), 18, RuntimeUiFactory.Muted, TextAlignmentOptions.Center);
         }

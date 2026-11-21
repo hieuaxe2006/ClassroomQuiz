@@ -94,11 +94,25 @@ function seedLessonQuestions(PDO $pdo): void
 
 function issueSession(PDO $pdo, int $accountId): string
 {
+    $pdo->exec('DELETE FROM account_sessions WHERE expires_at <= UTC_TIMESTAMP()');
     $token = bin2hex(random_bytes(32));
     $tokenHash = hash('sha256', $token);
     $insert = $pdo->prepare('INSERT INTO account_sessions (account_id, token_hash, expires_at) VALUES (?, ?, DATE_ADD(UTC_TIMESTAMP(), INTERVAL 30 DAY))');
     $insert->execute([$accountId, $tokenHash]);
     return $token;
+}
+
+function findAccountBySessionToken(PDO $pdo, string $token): array|false
+{
+    $token = strtolower(trim($token));
+    if (!preg_match('/\A[a-f0-9]{64}\z/i', $token)) {
+        return false;
+    }
+
+    $tokenHash = hash('sha256', $token);
+    $query = $pdo->prepare('SELECT a.account_id, a.email, a.display_name, a.avatar_key AS avatarKey FROM account_sessions s JOIN accounts a ON a.account_id = s.account_id WHERE s.token_hash = ? AND s.expires_at > UTC_TIMESTAMP() LIMIT 1');
+    $query->execute([$tokenHash]);
+    return $query->fetch();
 }
 
 function authenticatedAccount(PDO $pdo): array
@@ -107,7 +121,7 @@ function authenticatedAccount(PDO $pdo): array
     if (!preg_match('/^Bearer\s+([a-f0-9]{64})$/i', $header, $matches)) {
         respond(['success' => false, 'error' => 'Vui lòng đăng nhập lại.'], 401);
     }
-    $tokenHash = hash('sha256', $matches[1]);
+    $tokenHash = hash('sha256', strtolower($matches[1]));
     $query = $pdo->prepare('SELECT a.account_id, a.email, a.display_name FROM account_sessions s JOIN accounts a ON a.account_id = s.account_id WHERE s.token_hash = ? AND s.expires_at > UTC_TIMESTAMP() LIMIT 1');
     $query->execute([$tokenHash]);
     $account = $query->fetch();
@@ -175,12 +189,15 @@ try {
         respond(['success' => true, 'accountId' => (int)$account['account_id'], 'email' => $account['email'], 'displayName' => $account['display_name'], 'avatarKey' => $account['avatar_key'], 'token' => issueSession($pdo, (int)$account['account_id'])]);
     }
 
-    if ($action === 'verifyToken') {
+    if ($action === 'check_session' || $action === 'verifyToken') {
         $token = (string)($input['token'] ?? '');
-        $hash = hash('sha256', $token);
-        $query = $pdo->prepare('SELECT a.account_id, a.email, a.display_name, a.avatar_key AS avatarKey FROM account_sessions s JOIN accounts a ON a.account_id = s.account_id WHERE s.token_hash = ? AND s.expires_at > UTC_TIMESTAMP() LIMIT 1');
-        $query->execute([$hash]);
-        $account = $query->fetch();
+        if ($token === '') {
+            $authorization = $_SERVER['HTTP_AUTHORIZATION'] ?? '';
+            if (preg_match('/^Bearer\s+([a-f0-9]{64})$/i', $authorization, $matches)) {
+                $token = $matches[1];
+            }
+        }
+        $account = findAccountBySessionToken($pdo, $token);
         if (!$account) {
             respond(['success' => false, 'error' => 'Phiên đăng nhập đã hết hạn.'], 401);
         }

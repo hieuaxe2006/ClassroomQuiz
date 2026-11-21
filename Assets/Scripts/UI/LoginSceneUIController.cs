@@ -1,5 +1,6 @@
 using System;
 using System.Net.Mail;
+using System.Text;
 using ClassroomQuiz.Network;
 using TMPro;
 using UnityEngine;
@@ -64,7 +65,28 @@ namespace ClassroomQuiz.UI
             _registerButton.onClick.AddListener(OnRegisterPressed);
             _registerTabButton.onClick.AddListener(SetRegisterPanel);
             _backToLoginButton.onClick.AddListener(SetLoginPanel);
+            _apiUrlInput.text = PhpApiClient.ConfiguredUrl;
+            ApplyClassroomTheme();
             SetLoginPanel();
+
+            if (PhpApiClient.RestoreStoredSession())
+            {
+                _apiUrlInput.text = ClassroomQuiz.Managers.ClassroomQuizSessionState.ApiUrl;
+                if (!TryGetApiUrl(out var sessionApiUrl))
+                {
+                    return;
+                }
+
+                SetBusy(true, "Đang kiểm tra phiên đăng nhập…");
+                StartCoroutine(PhpApiClient.Post(sessionApiUrl,
+                    new ClassroomQuizApiRequest
+                    {
+                        action = "check_session",
+                        token = ClassroomQuiz.Managers.ClassroomQuizSessionState.AuthToken
+                    }, null, HandleSessionCheckResponse));
+                return;
+            }
+
             SetStatus("Đăng nhập bằng email và mật khẩu ClassroomQuiz của bạn.", RuntimeUiFactory.Muted);
         }
 
@@ -152,6 +174,172 @@ namespace ClassroomQuiz.UI
             _backToLoginButton = references.BackToLoginButton;
         }
 
+        private void ApplyClassroomTheme()
+        {
+            if (_loginPanel == null || _registerPanel == null)
+            {
+                return;
+            }
+
+            var cardTransform = _loginPanel.transform.parent;
+            if (cardTransform == null)
+            {
+                return;
+            }
+
+            var card = cardTransform.gameObject;
+            SetImageColor(card, ClassroomQuizDesignSystem.BoardGreen);
+            var background = cardTransform.parent != null && cardTransform.parent.name == "Background"
+                ? cardTransform.parent
+                : null;
+            if (background != null)
+            {
+                SetImageColor(background.gameObject, ClassroomQuizDesignSystem.ChalkWhite);
+            }
+
+            var brand = FindDescendant(card.transform, "Brand");
+            SetTextColor(brand, ClassroomQuizDesignSystem.BadgeGold);
+            SetTextColor(FindDescendant(card.transform, "Title"), ClassroomQuizDesignSystem.ChalkWhite);
+            SetTextColor(FindDescendant(card.transform, "Subtitle"), ClassroomQuizDesignSystem.ChalkWhite);
+            SetTextColor(FindDescendant(card.transform, "Api URL Label"), ClassroomQuizDesignSystem.ChalkWhite);
+            SetTextColor(FindDescendant(card.transform, "Login Help"), ClassroomQuizDesignSystem.ChalkWhite);
+            SetTextColor(FindDescendant(card.transform, "Login Hint"), ClassroomQuizDesignSystem.ChalkWhite);
+
+            var statusPlate = FindDescendant(card.transform, "Status Plate");
+            if (statusPlate != null)
+            {
+                SetImageColor(statusPlate.gameObject, ClassroomQuizDesignSystem.DeskWood);
+            }
+            SetTextColor(FindDescendant(card.transform, "Status"), ClassroomQuizDesignSystem.ChalkWhite);
+
+            ThemeButton(_loginButton, ClassroomQuizDesignSystem.BadgeGold, ClassroomQuizDesignSystem.BoardGreen);
+            ThemeButton(_registerButton, ClassroomQuizDesignSystem.DeskWood, Color.white);
+            ThemeButton(_registerTabButton, ClassroomQuizDesignSystem.BadgeGold, ClassroomQuizDesignSystem.BoardGreen);
+            ThemeButton(_backToLoginButton, ClassroomQuizDesignSystem.DeskWood, Color.white);
+
+            SetInputSurface(_apiUrlInput);
+            SetInputSurface(_loginEmail);
+            SetInputSurface(_loginPassword);
+            SetInputSurface(_registerEmail);
+            SetInputSurface(_registerDisplayName);
+            SetInputSurface(_registerPassword);
+            SetInputSurface(_confirmPassword);
+        }
+
+        private static Transform FindDescendant(Transform parent, string objectName)
+        {
+            if (parent == null)
+            {
+                return null;
+            }
+
+            for (var i = 0; i < parent.childCount; i++)
+            {
+                var child = parent.GetChild(i);
+                if (child.name == objectName)
+                {
+                    return child;
+                }
+
+                var nested = FindDescendant(child, objectName);
+                if (nested != null)
+                {
+                    return nested;
+                }
+            }
+
+            return null;
+        }
+
+        private static void SetImageColor(GameObject target, Color color)
+        {
+            if (target == null)
+            {
+                return;
+            }
+
+            var image = target.GetComponent<Image>();
+            if (image != null)
+            {
+                image.color = image.sprite == null ? color : Color.white;
+            }
+        }
+
+        private static void SetTextColor(Transform target, Color color)
+        {
+            if (target == null)
+            {
+                return;
+            }
+
+            var text = target.GetComponent<TMP_Text>();
+            if (text != null)
+            {
+                text.color = color;
+            }
+        }
+
+        private static void SetInputSurface(TMP_InputField input)
+        {
+            if (input == null || input.targetGraphic == null)
+            {
+                return;
+            }
+
+            input.targetGraphic.color = ClassroomQuizDesignSystem.ChalkWhite;
+            if (input.contentType == TMP_InputField.ContentType.Password)
+            {
+                input.characterLimit = 128;
+            }
+            if (input.textComponent != null)
+            {
+                input.textComponent.color = ClassroomQuizDesignSystem.BoardGreen;
+            }
+        }
+
+        private static void ThemeButton(Button button, Color backgroundColor, Color labelColor)
+        {
+            if (button == null)
+            {
+                return;
+            }
+
+            var image = button.targetGraphic as Image;
+            var hasSprite = image != null && image.sprite != null;
+            if (image != null)
+            {
+                image.color = hasSprite ? Color.white : backgroundColor;
+            }
+
+            button.colors = hasSprite
+                ? new ColorBlock
+                {
+                    normalColor = Color.white,
+                    highlightedColor = Color.Lerp(Color.white, ClassroomQuizDesignSystem.BadgeGold, 0.18f),
+                    pressedColor = Color.Lerp(Color.white, Color.black, 0.15f),
+                    selectedColor = Color.white,
+                    disabledColor = new Color(1f, 1f, 1f, 0.45f),
+                    colorMultiplier = 1f,
+                    fadeDuration = 0.12f
+                }
+                : new ColorBlock
+                {
+                    normalColor = backgroundColor,
+                    highlightedColor = Color.Lerp(backgroundColor, Color.white, 0.12f),
+                    pressedColor = Color.Lerp(backgroundColor, Color.black, 0.13f),
+                    selectedColor = backgroundColor,
+                    disabledColor = new Color(backgroundColor.r, backgroundColor.g, backgroundColor.b, 0.45f),
+                    colorMultiplier = 1f,
+                    fadeDuration = 0.12f
+                };
+
+            var label = button.GetComponentInChildren<TMP_Text>(true);
+            if (label != null)
+            {
+                label.color = labelColor;
+            }
+        }
+
         private void SetLoginPanel()
         {
             RuntimeUiFactory.SetVisible(_loginPanel, true);
@@ -178,6 +366,7 @@ namespace ClassroomQuiz.UI
             if (!TryGetApiUrl(out var apiUrl)) return;
 
             SetBusy(true, "Đang đăng nhập…");
+            PhpApiClient.SetConfiguredUrl(apiUrl);
             var request = new ClassroomQuizApiRequest
             {
                 action = "login",
@@ -201,9 +390,10 @@ namespace ClassroomQuiz.UI
                 SetStatus("Tên hiển thị cần từ 1 đến 48 ký tự.", RuntimeUiFactory.Orange);
                 return;
             }
-            if (_registerPassword.text.Length < 8)
+            var passwordByteCount = Encoding.UTF8.GetByteCount(_registerPassword.text);
+            if (passwordByteCount < 8 || passwordByteCount > 128)
             {
-                SetStatus("Mật khẩu cần có ít nhất 8 ký tự.", RuntimeUiFactory.Orange);
+                SetStatus("Mật khẩu cần dài từ 8 đến 128 byte UTF-8.", RuntimeUiFactory.Orange);
                 return;
             }
             if (_registerPassword.text != _confirmPassword.text)
@@ -214,6 +404,7 @@ namespace ClassroomQuiz.UI
             if (!TryGetApiUrl(out var apiUrl)) return;
 
             SetBusy(true, "Đang tạo tài khoản…");
+            PhpApiClient.SetConfiguredUrl(apiUrl);
             var request = new ClassroomQuizApiRequest
             {
                 action = "register",
@@ -233,14 +424,38 @@ namespace ClassroomQuiz.UI
                 return;
             }
 
-            ClassroomQuizPreferences.SetString(PhpApiClient.AccountIdPreferenceKey, response.accountId.ToString());
-            ClassroomQuizPreferences.SetString(PhpApiClient.AccountTokenPreferenceKey, response.token);
-            ClassroomQuizPreferences.SetString(PhpApiClient.AccountEmailPreferenceKey, response.email);
-            ClassroomQuizPreferences.SetString("ClassroomQuiz.DisplayName", response.displayName);
-            ClassroomQuizPreferences.SetString("ClassroomQuiz.Avatar", string.IsNullOrWhiteSpace(response.avatarKey) ? "A" : response.avatarKey);
-            ClassroomQuizPreferences.SetString(PhpApiClient.ApiUrlPreferenceKey, _apiUrlInput.text.Trim());
-            ClassroomQuizPreferences.Save();
+            if (!PhpApiClient.SaveAccountSession(response, _apiUrlInput.text))
+            {
+                SetStatus("Không thể lưu phiên đăng nhập. Vui lòng thử lại.", RuntimeUiFactory.Red);
+                return;
+            }
             SceneManager.LoadScene("StartScene");
+        }
+
+        private void HandleSessionCheckResponse(ClassroomQuizApiResponse response)
+        {
+            SetBusy(false, string.Empty);
+            if (response != null && response.success && response.accountId > 0
+                && PhpApiClient.SaveAccountSession(response, _apiUrlInput.text,
+                    ClassroomQuiz.Managers.ClassroomQuizSessionState.AuthToken))
+            {
+                SceneManager.LoadScene("StartScene");
+                return;
+            }
+
+            if (response != null && response.httpStatusCode == 401)
+            {
+                PhpApiClient.ClearStoredSession();
+                SetLoginPanel();
+                SetStatus("Phiên đăng nhập đã hết hạn. Vui lòng đăng nhập lại.", RuntimeUiFactory.Orange);
+                return;
+            }
+
+            SetLoginPanel();
+            var error = response == null || string.IsNullOrWhiteSpace(response.error)
+                ? "Không thể kiểm tra phiên đăng nhập. Hãy kiểm tra API URL và kết nối XAMPP."
+                : response.error;
+            SetStatus(error, RuntimeUiFactory.Red);
         }
 
         private bool TryGetApiUrl(out string apiUrl)

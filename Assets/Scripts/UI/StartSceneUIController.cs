@@ -616,8 +616,11 @@ namespace ClassroomQuiz.UI
             };
             foreach (var player in players)
             {
-                var roleText = player.role == "Teacher" ? "Giáo viên" : "Học sinh";
-                lines.Add($"[{(player.role == "Teacher" ? "GV" : "HS")}]  {player.displayName}   —   {roleText}");
+                var isTeacher = string.Equals(player.role, "Teacher", StringComparison.Ordinal);
+                var roleText = isTeacher ? "Giáo viên" : "Học sinh";
+                var seatText = isTeacher ? "Bàn giáo viên" : $"Ghế {player.seatIndex + 1}";
+                var avatarKey = string.IsNullOrWhiteSpace(player.avatarKey) ? "A" : player.avatarKey;
+                lines.Add($"[{(isTeacher ? "GV" : "HS")}]  {seatText}  ·  Avatar {avatarKey}  ·  {player.displayName}  —  {roleText}");
             }
 
             _ui.RosterText.text = string.Join("\n", lines);
@@ -914,7 +917,14 @@ namespace ClassroomQuiz.UI
                 var outline = button.GetComponent<Outline>();
                 var selected = _ui.AvatarChoices[i] == _pendingAvatar;
                 outline.enabled = selected;
-                button.targetGraphic.color = selected ? RuntimeUiFactory.Hex("168A53") : RuntimeUiFactory.Purple;
+                if (button.targetGraphic is Image img && img.sprite != null)
+                {
+                    img.color = selected ? new Color(1f, 0.92f, 0.5f, 1f) : Color.white;
+                }
+                else
+                {
+                    button.targetGraphic.color = selected ? RuntimeUiFactory.Hex("168A53") : RuntimeUiFactory.Purple;
+                }
             }
         }
 

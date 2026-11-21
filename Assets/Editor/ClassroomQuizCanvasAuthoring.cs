@@ -57,16 +57,20 @@ namespace ClassroomQuiz.Editor
                             var controller = authoringRoot.AddComponent<LoginSceneUIController>();
                             controller.BuildInterface();
                             UnityEngine.Object.DestroyImmediate(authoringRoot);
+                            ClassroomQuizSpriteApplier.ApplyToLoginScene();
                             break;
                         }
                         case "StartScene":
                             StartSceneRuntimeUi.Build(null);
+                            ClassroomQuizSpriteApplier.ApplyToStartScene();
                             break;
                         case "GamePlay":
                             GameplayRuntimeUi.Build();
+                            ClassroomQuizSpriteApplier.ApplyToGameplayScene();
                             break;
                         case "EndScene":
                             EndSceneUIController.BuildUi();
+                            ClassroomQuizSpriteApplier.ApplyToEndScene();
                             break;
                     }
 
